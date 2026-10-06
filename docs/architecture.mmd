@@ -1,0 +1,64 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Helvetica,Arial,sans-serif","fontSize":"15px","lineColor":"#8a94a6"}}}%%
+flowchart LR
+
+    %% ---------- INPUT ----------
+    subgraph IN["①&nbsp; INPUT"]
+        direction TB
+        STORE["icechunk / zarr<br/>store"]
+    end
+
+    %% ---------- IDENTIFY ----------
+    subgraph IDF["②&nbsp; IDENTIFY<br/><span>what is this product?</span>"]
+        direction TB
+        GID["GRIB2 metadata<br/><i>grib_identity</i>"]
+        RID["NEXRAD radar metadata<br/><i>radar_identity</i>"]
+    end
+
+    %% ---------- RESOLVE ----------
+    subgraph RSV["④&nbsp; RESOLVE<br/><span>match to an authority</span>"]
+        direction TB
+        RES["<b>resolver</b><br/>accurate or nothing"]
+    end
+
+    %% ---------- SOURCES (feed the resolver) ----------
+    subgraph SRC["③&nbsp; AUTHORITATIVE SOURCES &nbsp;—&nbsp; pinned & hash-verified"]
+        direction LR
+        S3["tocgrib2 parm<br/>GFS · GEFS · AQM"]
+        S4["NOAAPort radar<br/>NEXRAD Level III"]
+        S1["MRMS SBN<br/>notices"]
+        S2["RTMA / URMA<br/>TINs"]
+        S5["WMO / GRIB2<br/>code tables"]
+        S6["XR-09 office<br/>directory"]
+    end
+
+    %% ---------- OUTPUT ----------
+    subgraph OUT["⑤&nbsp; RESULT"]
+        direction TB
+        OK["WMO HEADER<br/><b>T1T2A1A2ii CCCC YYGGgg</b>"]
+        NO["UNRESOLVED<br/>+ specific reason"]
+    end
+
+    STORE --> GID
+    STORE --> RID
+    GID --> RES
+    RID --> RES
+    SRC -. "look up" .-> RES
+
+    RES -->|"traces to a record"| OK
+    RES -->|"no record exists"| NO
+
+    classDef input fill:#eef2f7,stroke:#8a94a6,color:#1b2733
+    classDef idf fill:#eaf2f8,stroke:#2874a6,color:#1b4f72
+    classDef src fill:#f4ecf7,stroke:#7d3c98,color:#4a235a
+    classDef rsv fill:#fef9e7,stroke:#b7950b,color:#7d6608
+    classDef ok fill:#d5f5e3,stroke:#1e8449,color:#145a32
+    classDef no fill:#fadbd8,stroke:#c0392b,color:#7b241c
+    classDef band fill:#fbfcfe,stroke:#dde3ec,color:#55617a
+
+    class STORE input
+    class GID,RID idf
+    class S1,S2,S3,S4,S5,S6 src
+    class RES rsv
+    class OK ok
+    class NO no
+    class IN,IDF,SRC,RSV,OUT band

@@ -1,0 +1,388 @@
+{
+  "manifest_version": 1,
+  "description": "Pinned authoritative sources for NWS/NCEP WMO abbreviated-heading assignments. Each source is fetched at an immutable tag/URL, hashed, and parsed by build_registry.py. Nothing in the generated registry is hand-transcribed: every entry cites the file and line it came from.",
+  "header_structure": {
+    "form": "T1T2A1A2ii CCCC YYGGgg (BBB)",
+    "reference": "https://www.weather.gov/tg/headef",
+    "note": "For tocgrib2-based sources, TTAAii = WMOHEAD(1:6) and CCCC = WMOHEAD(8:11) verbatim from the parm record; YYGGgg is stamped from the GRIB message at dissemination time and is therefore derived from the data, not the registry."
+  },
+  "sources": [
+    {
+      "id": "nws-xr09-ccc-nodes",
+      "kind": "cccc_directory",
+      "authority": "NWS COMMS-ID message XR-09: the CCC-node to four-letter CCCC office-identifier list (NWS Communications Identifier Implementation Plan). Used to validate that an emitted CCCC is a real NWS office/originating identifier.",
+      "url": "https://www.weather.gov/source/datamgmt/xr09_CCC_NODES_List.html",
+      "format": "tsv_ccc_cccc",
+      "expected_sha256": "e331930ebad30a71948b0c4a252e6e37bb07856ec06686e7af4f12af7a7dd2cb",
+      "note": "Tab-delimited CCC<TAB>KCCCC rows. Provides the authoritative set of valid CCCC codes; the tool warns (does not fail) if a resolved header carries a CCCC absent from this set, since national-center codes (KWBC, KWNR, KWBK) are not WFO nodes and legitimately may not appear."
+    },
+    {
+      "id": "nws-xr04-awips-xref",
+      "kind": "nws_awips_xref",
+      "authority": "NWS COMMS-ID message XR-04: cross-reference of AWIPS product category (NNN) to WMO heading components (T1T2 and ii) with description. The authoritative AWIPS-PIL to WMO-header crossover.",
+      "url": "https://www.weather.gov/source/datamgmt/xr04_X_ref_by_NNN.html",
+      "format": "tsv_nnn_tt_ii",
+      "expected_sha256": "34cc283d3d6941b633882b9273ea38f911d226e2eb08867a2d8513bf61ffc53f",
+      "note": "Tab-delimited NNN<TAB>TT<TAB>ii<TAB>DESCRIPTION. TT may be multi-valued (e.g. 'NO/WO'); ii is often a placeholder (4i/5i/ce/it) rather than a fixed number. Loaded as a reference/validation table, not a resolver: it lets the tool cross-check a text product's NNN/PIL against the WMO heading it carries."
+    },
+    {
+      "id": "nws-rtma-urma",
+      "kind": "nws_analysis_header",
+      "authority": "NWS TIN 11-42 / TIN 13-39 WMO header assignments for RTMA/URMA analysis grids (CCCC=KWBR). Curated with per-entry source quotes; the curated table and its pinned document hashes live in registry/rtma_urma_headers.json.",
+      "curated_file": "rtma_urma_headers.json"
+    },
+    {
+      "id": "grib2io-param-tables",
+      "kind": "grib2_param_table",
+      "authority": "NOAA-MDL grib2io GRIB2 parameter tables (section 4.2), the authoritative discipline/category/number to NCEP-abbreviation mapping. Used to identify what a field IS from its short_name; it does not carry WMO header allocations.",
+      "repo": "NOAA-MDL/grib2io",
+      "tag": "v2.8.2",
+      "tarball": "https://github.com/NOAA-MDL/grib2io/archive/refs/tags/v2.8.2.tar.gz",
+      "expected_sha256": "49bf52c47eea213463724c909370c7b1f804602524f9cbde4ff9ff5ce79109ab",
+      "table_dir": "src/grib2io/tables",
+      "note": "Parses table_4_2_<discipline>_<category> dicts of {number: [name, units, abbreviation]} into abbreviation -> (discipline, category, number). Abbreviations that map to more than one identity are recorded as ambiguous and not used for matching."
+    },
+    {
+      "id": "wmo-grib2-code-tables",
+      "kind": "wmo_code_table",
+      "authority": "WMO GRIB2 code tables, machine-readable, maintained by the WMO Infrastructure Commission (wmo-im). Used to translate the decoded metadata strings held in the archives back into the GRIB2 numeric codes that the tocgrib2 parm records are keyed on.",
+      "repo": "wmo-im/GRIB2",
+      "ref": "master",
+      "tables": [
+        {
+          "id": "4.3",
+          "name": "typeOfGeneratingProcess",
+          "url": "https://raw.githubusercontent.com/wmo-im/GRIB2/master/GRIB2_CodeFlag_4_3_CodeTable_en.csv",
+          "expected_sha256": "2b8d807d97827086502facc320a0058d3418bc86549229dbdb3c93bf3dee9fbf"
+        },
+        {
+          "id": "4.5",
+          "name": "typeOfFixedSurface",
+          "url": "https://raw.githubusercontent.com/wmo-im/GRIB2/master/GRIB2_CodeFlag_4_5_CodeTable_en.csv",
+          "expected_sha256": "84f386d4920d131326142d2cb461db1eae6b3f9df2966edafd3699bdbb2f2185"
+        },
+        {
+          "id": "4.10",
+          "name": "statisticalProcess",
+          "url": "https://raw.githubusercontent.com/wmo-im/GRIB2/master/GRIB2_CodeFlag_4_10_CodeTable_en.csv",
+          "expected_sha256": "8b1ce9ac22494a625365c56efa9b0d2b78d8282a8a7f9e1e94265fdcce97b094"
+        }
+      ],
+      "csv_columns": {
+        "code": "CodeFlag",
+        "meaning": "MeaningParameterDescription_en",
+        "status": "Status"
+      },
+      "note": "Archive metadata renders these meanings with extra unit suffixes, e.g. 'Specified Height Level Above Ground (m)' for 'Specific height level above ground'. Lookups normalize case, whitespace and trailing parenthetical suffixes; a string that does not resolve to exactly one code is treated as unresolvable rather than guessed."
+    },
+    {
+      "id": "nws-mrms-sbn",
+      "kind": "nws_notice",
+      "authority": "NWS notices publishing MRMS WMO header assignments on the SBN. MRMS headers are applied by the IDP application rather than tocgrib2, so there is no operational parm file to read; these notices are the authoritative public record.",
+      "matching": "by product name and domain (the notices identify products by name, not by GRIB2 template identity)",
+      "domain_from": "The A1 (3rd) character of the code encodes the domain (U=CONUS, A=Alaska, H=Hawaii, G=Guam, C=Caribbean). Where a document also states a domain label, the two are cross-checked and disagreement aborts the build.",
+      "cccc_declared_by": "TIN14-49",
+      "documents": [
+        {
+          "id": "TIN14-49",
+          "title": "NWS TIN 14-49: addition of MRMS to the SBN and NOAAPort",
+          "url": "https://www.weather.gov/media/notification/tins/tin14-49mrms_ccb.pdf",
+          "format": "pdf",
+          "layouts": [
+            "A"
+          ],
+          "role": "original CONUS header list; declares 'CCCC = KWNR'",
+          "expected_sha256": "da3957f13d2d87e87db70d6ba9d5a9a9dbb54e83660485103ddc07ab0d92a93a"
+        },
+        {
+          "id": "PNS20-86",
+          "title": "NWS PNS 20-86: proposed MRMS SBN product changes",
+          "url": "https://www.weather.gov/media/notification/pdf2/pns20-86mrms_sbn_binary.pdf",
+          "format": "pdf",
+          "layouts": [
+            "A"
+          ],
+          "role": "per-domain header lists (CONUS/Alaska/Hawaii) with added/retained/removed status",
+          "expected_sha256": "37c5babe8bf8157f4d2bd41c20ef168009a2938c83e772ce69f2a2347dec0739"
+        },
+        {
+          "id": "MRMS-SCN-v12.1",
+          "title": "MRMS v12.1.0 Service Change Notice supplemental",
+          "url": "https://www.nco.ncep.noaa.gov/pmb/changes/MRMS_SCN_v12.1_Upgrade_Supplemental.pdf",
+          "format": "pdf",
+          "layouts": [
+            "A"
+          ],
+          "role": "implemented (not merely proposed) SBN changes for v12.1",
+          "expected_sha256": "0f15788d154d265ea404c17d0b82a3d18043e92ad7aa6c6462e708ae4b315e99"
+        },
+        {
+          "id": "MRMS-v12.2-supp",
+          "title": "MRMS v12.2 Supplemental",
+          "url": "https://www.weather.gov/idp/MRMS_v12.2_Supplemental",
+          "format": "html",
+          "layouts": [
+            "B"
+          ],
+          "role": "current product-name to code mapping; the HTML table cells tie each concrete product name to its code(s) per domain, which is what allows matching against archived short_name values",
+          "hash_mode": "extracted",
+          "hash_mode_reason": "This is a live weather.gov page that embeds rotating content (current-conditions text), so its raw bytes change independently of the header tables. The integrity hash therefore covers the extracted assignments rather than the page bytes, which still detects any change that could alter a resolved header.",
+          "expected_sha256": "a33ef77d3b3080243dfa8511cf8e2b2f4b2f1e158aa0eaac4859970e001a9856"
+        }
+      ],
+      "known_source_defects": [
+        {
+          "code": "YAUS06",
+          "document": "MRMS-v12.2-supp",
+          "observed": "PrecipFlag is annotated '*On SBN with WMO code YAUS06 (CONUS)*'",
+          "problem": "YAUS06 designates Mid-Level Rotation Tracks per TIN 14-49, PNS 20-86 and the v12.1 SCN; PrecipFlag is YAUP01. The v12.2 supplemental appears to contain a typo.",
+          "handling": "Detected automatically: YAUS06 is associated with two unrelated product families within the same document, so the build marks the code unusable rather than choosing between them. PrecipFlag therefore resolves to no header."
+        }
+      ]
+    },
+    {
+      "id": "nws-noaaport-radar",
+      "kind": "nexrad_radar",
+      "authority": "NWS 'Radar Products Through the NOAAPort Satellite Broadcast' table (WSR-88D and TDWR products). The authoritative public record of which NEXRAD Level III products are disseminated on the SBN and under what WMO heading (SDUS<tier>). Products defined in the WSR-88D ICD but absent from this table (e.g. super-res codes 167/168) are not disseminated and correctly resolve to no heading. Level II base data is not on this table at all (distributed as whole-volume files via LDM/FTP).",
+      "matching": "by product code + elevation angle -> NNN mnemonic -> SDUS<tier> heading; CCCC/site is per-site and supplied from the store's site_id at resolve time, not from the table.",
+      "documents": [
+        {
+          "id": "noaaport-radar-products",
+          "title": "NWS Radar Products Through the NOAAPort Satellite Broadcast (WSR-88D and TDWR)",
+          "url": "https://www.weather.gov/media/tg/noaaport_radar_products.pdf",
+          "format": "pdf",
+          "role": "product-code + elevation -> NNN + SDUS tier assignments",
+          "expected_sha256": "0d9ef6019b8a47b70c8453780479f7ab8929fca52bfe2b775cc154e18fe378eb"
+        }
+      ]
+    },
+    {
+      "id": "ncep-aqm-awips",
+      "kind": "tocgrib2_parm",
+      "authority": "NCEP Air Quality Model (AQM/CMAQ) dissemination configuration (NOAA-EMC/AQM-utils parm/wmo, the tocgrib2 config that stamps WMO headers on AQM AWIPS products). CCCC=KWBP.",
+      "repo": "NOAA-EMC/AQM-utils",
+      "tag": "production/AQMv7.0.13",
+      "tarball": "https://github.com/NOAA-EMC/AQM-utils/archive/refs/tags/production/AQMv7.0.13.tar.gz",
+      "expected_sha256": "91bb55a46a0b4406309cdeb5429a9d60ad54705e274391e2dcd8fb42a7f59ea6",
+      "parm_dir": "parm/wmo",
+      "tocgrib2_reference": {
+        "repo": "NOAA-EMC/NCEPLIBS-grib_util",
+        "path": "src/tocgrib2/tocgrib2.F90",
+        "namelist": "GRIBIDS",
+        "header_assembly": "CALL MAKWMO(WMOHEAD(1:6), dayofmonth, hourofday, WMOHEAD(8:11), WMOHDR)",
+        "pdt_wildcard_default": "PDT=-9999 is set before each namelist READ, so PDT slots a record does not supply are wildcards"
+      },
+      "grid_binding": {
+        "derived_from": "parm-file suffix (the AWIPS dissemination script is not in this public repo)",
+        "how": "AQM parm files are named grib2_aqm_*.tCCz.<grid>, where <grid> is the NCEP grid number (196=Hawaii 2.5km, 198=Alaska 6km, 227=5km Lambert CONUS). The grid is bound by that suffix. Unlike GFS/GEFS, the A1 character does NOT uniquely encode the grid here (it encodes the averaging period), so no expect_a1 cross-check is declared; grids are matched by GRIB2 Section 3 template + dimensions instead.",
+        "parm_file_selection": [
+          "grib2_aqm_*.<grid>  where <grid> in {196,198,227}"
+        ],
+        "cross_check": "Grid matched by gridDefinitionTemplateNumber + Ni + Nj against the archive's grib_section3. The three AQM grids have distinct dimensions so this is unambiguous. 'SUPER WMO HEADER' sentinel rows are dropped.",
+        "cross_check_reference": "https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/awips/appendixa.html",
+        "grids": [
+          {
+            "name": "aqm_conus_227_5km_lambert",
+            "file_glob": "grib2_aqm*.227",
+            "a1_meaning_on388": "227 - 5 km Lambert Conformal CONUS",
+            "section3": {"gridDefinitionTemplateNumber": 30, "Ni": 1473, "Nj": 1025}
+          }
+        ],
+        "unbound": [
+          {
+            "file_glob": "grib2_aqm*.196",
+            "reason": "NCEP grid 196 (2.5 km Hawaii). Header records are recorded, but the exact Section 3 dimensions were not verified against a real store, so no matchable section3 binding is asserted (would risk a wrong dimension). Add dimensions once a Hawaii AQM store is available."
+          },
+          {
+            "file_glob": "grib2_aqm*.198",
+            "reason": "NCEP grid 198 (6.0 km Alaska). Same as 196: recorded but not bound with verified dimensions."
+          }
+        ]
+      }
+    },
+    {
+      "id": "ncep-gefs-awips",
+      "kind": "tocgrib2_parm",
+      "authority": "NCEP GEFS operational dissemination configuration (the config tocgrib2 reads to stamp WMO headers on GEFS AWIPS products)",
+      "repo": "NOAA-EMC/GEFS",
+      "tag": "gefs.v12.3.22-0",
+      "tarball": "https://github.com/NOAA-EMC/GEFS/archive/refs/tags/gefs.v12.3.22-0.tar.gz",
+      "expected_sha256": "13d055d204dd1974f520f5ca92a34409fbaffb65efe21dc7394b314d99ab442f",
+      "parm_dir": "parm/wmo",
+      "tocgrib2_reference": {
+        "repo": "NOAA-EMC/NCEPLIBS-grib_util",
+        "path": "src/tocgrib2/tocgrib2.F90",
+        "namelist": "GRIBIDS",
+        "header_assembly": "CALL MAKWMO(WMOHEAD(1:6), dayofmonth, hourofday, WMOHEAD(8:11), WMOHDR)",
+        "pdt_wildcard_default": "PDT=-9999 is set before each namelist READ, so PDT slots a record does not supply are wildcards"
+      },
+      "grid_binding": {
+        "derived_from": "scripts/exgefs_atmos_awips.sh + ush/gefs_atmos_getsbn.sh",
+        "how": "getsbn.sh regrids the ensemble-mean output with 'wgrib2 -new_grid latlon <cutgrid>' to a CONUS-clipped box, then invokes tocgrib2 with the parm file for that forecast-hour range/variable. The parm records contain no GDTN/GDT, so the grid comes from this binding.",
+        "parm_file_selection": [
+          "grib2_awips_gefs_f${bhr}_${ehr}_${var}_conus  (var in apcp/tmax/tmin; fhr range 006_240 / 246_384 / 390_840)"
+        ],
+        "cross_check": "All GEFS AWIPS parm files use A1='C', which per ON-388 Appendix A Table A.2 for CCCC=KWBK is the CONUS Domain (170W-60W ; 15N-75N). Build fails if this correspondence breaks.",
+        "cross_check_reference": "https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/awips/appendixa.html",
+        "grids": [
+          {
+            "name": "gefs_awips_conus_0p25",
+            "file_glob": "grib2_awips_gefs_f*_apcp_conus",
+            "expect_a1": "C",
+            "a1_meaning_on388": "CONUS Domain (170W-60W ; 15N-75N) for CCCC=KWBK",
+            "wgrib2_new_grid": "latlon -170:441:0.25 75:241:-0.25",
+            "section3": {
+              "gridDefinitionTemplateNumber": 0,
+              "Ni": 441,
+              "Nj": 241,
+              "lat_first": 75.0,
+              "lon_first": 190.0,
+              "di_deg": 0.25,
+              "dj_deg": 0.25
+            }
+          },
+          {
+            "name": "gefs_awips_conus_temp",
+            "file_glob": "grib2_awips_gefs_f*_tm??_conus",
+            "expect_a1": "C",
+            "a1_meaning_on388": "CONUS Domain (170W-60W ; 15N-75N) for CCCC=KWBK",
+            "wgrib2_new_grid": "latlon -170:441:0.25 75:241:-0.25",
+            "section3": {
+              "gridDefinitionTemplateNumber": 0,
+              "Ni": 441,
+              "Nj": 241,
+              "lat_first": 75.0,
+              "lon_first": 190.0,
+              "di_deg": 0.25,
+              "dj_deg": 0.25
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "ncep-gfs-awips",
+      "kind": "tocgrib2_parm",
+      "authority": "NCEP operational dissemination configuration (the config tocgrib2 reads to stamp WMO headers on disseminated AWIPS/SBN products)",
+      "repo": "NOAA-EMC/global-workflow",
+      "tag": "gfs.v16.3.24",
+      "tarball": "https://github.com/NOAA-EMC/global-workflow/archive/refs/tags/gfs.v16.3.24.tar.gz",
+      "expected_sha256": "18f57ba7b7a97bffa7b737e43516532fab42470b3bab5de76860e6900288aec0",
+      "parm_dir": "parm/wmo",
+      "tocgrib2_reference": {
+        "repo": "NOAA-EMC/NCEPLIBS-grib_util",
+        "path": "src/tocgrib2/tocgrib2.F90",
+        "namelist": "GRIBIDS",
+        "header_assembly": "CALL MAKWMO(WMOHEAD(1:6), dayofmonth, hourofday, WMOHEAD(8:11), WMOHDR)",
+        "pdt_wildcard_default": "PDT=-9999 is set before each namelist READ, so PDT slots a record does not supply are wildcards"
+      },
+      "grid_binding": {
+        "derived_from": "scripts/exgfs_atmos_awips_20km_1p0deg.sh",
+        "how": "The script regrids the 0.25-degree GFS master file with 'wgrib2 -new_grid' to a target AWIPS grid, then invokes tocgrib2 with the parm file matching that grid and forecast hour. The parm records themselves contain no GDTN/GDT, so the grid comes from this binding.",
+        "parm_file_selection": [
+          "GRID=003 and (fcsthrs % 6)==0  ->  parm/wmo/grib2_awpgfs${fcsthrs}.003",
+          "GRID!=003                      ->  parm/wmo/grib2_awpgfs_20km_${GRID}f${fcsthrs}"
+        ],
+        "cross_check": "Each parm family uses exactly one A1 (3rd) character in its WMOHEAD, and those characters match the grid designators published in NCEP ON-388 Appendix A Table A.2 for CCCC=KWBC. Build fails if this correspondence breaks.",
+        "cross_check_reference": "https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/awips/appendixa.html",
+        "grids": [
+          {
+            "name": "gfs_awips_1p0deg_003",
+            "file_glob": "grib2_awpgfs*.003",
+            "expect_a1": "P",
+            "a1_meaning_on388": "1.0x1.0 deg Global Lat/Lon grid",
+            "wgrib2_new_grid": "latlon 0:360:1.0 90:181:-1.0",
+            "section3": {
+              "gridDefinitionTemplateNumber": 0,
+              "Ni": 360,
+              "Nj": 181,
+              "lat_first": 90.0,
+              "lon_first": 0.0,
+              "di_deg": 1.0,
+              "dj_deg": 1.0
+            }
+          },
+          {
+            "name": "gfs_awips_20km_conus",
+            "file_glob": "grib2_awpgfs_20km_conusf*",
+            "expect_a1": "N",
+            "a1_meaning_on388": "20 km Lambert Conformal grid - CONUS",
+            "wgrib2_new_grid": "lambert:265.0:25.0:25.0 226.541:369:20318.0 12.19:257:20318.0",
+            "section3": {
+              "gridDefinitionTemplateNumber": 30,
+              "Ni": 369,
+              "Nj": 257
+            }
+          },
+          {
+            "name": "gfs_awips_20km_alaska",
+            "file_glob": "grib2_awpgfs_20km_akf*",
+            "expect_a1": "B",
+            "a1_meaning_on388": "20 km Polar Stereographic grid - Alaska",
+            "wgrib2_new_grid": "nps:210.0:60.0 170.0:277:22500 35.0:225:22500",
+            "section3": {
+              "gridDefinitionTemplateNumber": 20,
+              "Ni": 277,
+              "Nj": 225
+            }
+          },
+          {
+            "name": "gfs_awips_20km_pacific",
+            "file_glob": "grib2_awpgfs_20km_pacf*",
+            "expect_a1": "E",
+            "a1_meaning_on388": "20 km Mercator grid - Pacific Region",
+            "wgrib2_new_grid": "mercator:20.0 110.0:837:20000:270.0 -45.0:725:20000:65.7345",
+            "section3": {
+              "gridDefinitionTemplateNumber": 10,
+              "Ni": 837,
+              "Nj": 725
+            }
+          },
+          {
+            "name": "gfs_awips_20km_puertorico",
+            "file_glob": "grib2_awpgfs_20km_pricof*",
+            "expect_a1": "F",
+            "a1_meaning_on388": "20 km Lat/Lon grid - Puerto Rico",
+            "wgrib2_new_grid": "latlon 271.75:275:0.25 50.75:205:-0.25",
+            "section3": {
+              "gridDefinitionTemplateNumber": 0,
+              "Ni": 275,
+              "Nj": 205,
+              "lat_first": 50.75,
+              "lon_first": 271.75,
+              "di_deg": 0.25,
+              "dj_deg": 0.25
+            }
+          }
+        ],
+        "unbound": [
+          {
+            "file_glob": "grib_awpgfs*.211",
+            "observed_a1": "Q",
+            "reason": "Legacy GRIB1-era 'tocgrib' fixed-width tables, not tocgrib2 &GRIBIDS namelists, so the tocgrib2 parser does not read them. No script in this repo tag references them (grep for '211' in scripts/ush/jobs found no dissemination path), so they appear vestigial at this tag. A1='Q' is consistent with ON-388 Table A.2 grid 211 (80 km CONUS), but with no verified dissemination path and no parsed records these are excluded from matching."
+          },
+          {
+            "file_glob": "grib2_gfs_wafsf*",
+            "observed_a1": "X",
+            "reason": "WAFS products are disseminated by a different script which was not read; grid binding unverified, so these records are recorded but marked unusable for matching."
+          },
+          {
+            "file_glob": "grib2_gfs_wafs_wifs_f*",
+            "observed_a1": "X",
+            "reason": "WAFS/WIFS dissemination path not verified."
+          },
+          {
+            "file_glob": "grib2_blended_wafs_wifs_f*",
+            "observed_a1": "X",
+            "reason": "Blended WAFS/WIFS dissemination path not verified."
+          },
+          {
+            "file_glob": "grib_wfsgfs*",
+            "observed_a1": "X",
+            "reason": "WAFS dissemination path not verified."
+          }
+        ]
+      }
+    }
+  ]
+}

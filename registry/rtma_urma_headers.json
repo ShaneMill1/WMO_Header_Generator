@@ -1,0 +1,48 @@
+{
+  "id": "nws-rtma-urma",
+  "kind": "nws_analysis_header",
+  "authority": "NWS Technical Implementation Notices assigning WMO headers to RTMA/URMA analysis grids on NOAAPort. The RTMA/URMA dissemination parm files are not public, but these TINs publish the header allocation directly (as MRMS notices do). Header form: L T2 A1 'A98' with CCCC=KWBR, where T2 encodes the parameter and A1 encodes the domain/resolution.",
+  "cccc": "KWBR",
+  "a2ii": "A98",
+  "t1": "L",
+  "documents": [
+    {
+      "id": "TIN11-42",
+      "title": "TIN 11-42: RTMA operational, WMO headings for RTMA grids (5km and 2.5km, all domains)",
+      "url": "https://www.weather.gov/media/notification/tins/tin11-42rtma_oper.pdf",
+      "expected_sha256": "adff8429c05d9230b017829dac179c2e1084bedea910027da60c67403d392a57"
+    },
+    {
+      "id": "TIN13-39",
+      "title": "TIN 13-39 AAA: RTMA Q4 changes, adds URMA 2.5km CONUS and 3km Alaska, wind gust/visibility",
+      "url": "https://www.weather.gov/media/notification/tins/tin13-39rtma_q4_aaa.pdf",
+      "expected_sha256": "e037c9d5529af6011b8dfcc6f43b9c366cfaefbecf1979b8112ab751f2c4460f"
+    }
+  ],
+  "t2_note": "Parameter -> T2 character, read from the header tables in TIN 11-42 / TIN 13-39. Each entry cites the verbatim table row it derives from.",
+  "parameter_t2": [
+    {"short_name": "TMP",  "t2": "T", "desc": "temperature analysis",            "source": "TIN11-42", "quote": "LT*A98 KWBR    temperature analysis"},
+    {"short_name": "DPT",  "t2": "R", "desc": "dewpoint temperature analysis",   "source": "TIN11-42", "quote": "LR*A98 KWBR    dewpoint temperature analysis"},
+    {"short_name": "WIND", "t2": "N", "desc": "wind speed analysis",             "source": "TIN11-42", "quote": "LN*A98 KWBR    wind speed analysis"},
+    {"short_name": "WDIR", "t2": "N", "desc": "wind direction analysis",         "source": "TIN11-42", "quote": "LN*A98 KWBR    wind direction analysis"},
+    {"short_name": "GUST", "t2": "N", "desc": "wind gust analysis",              "source": "TIN13-39", "quote": "LN*A98 KWBR    wind gust analysis"},
+    {"short_name": "VIS",  "t2": "K", "desc": "visibility analysis",             "source": "TIN13-39", "quote": "LK*A98 KWBR    visibility analysis"},
+    {"short_name": "UGRD", "t2": "U", "desc": "u wind component analysis",       "source": "TIN11-42", "quote": "LU*A98 KWBR    u wind component analysis"},
+    {"short_name": "VGRD", "t2": "V", "desc": "v wind component analysis",       "source": "TIN11-42", "quote": "LV*A98 KWBR    v wind component analysis"},
+    {"short_name": "PRES", "t2": "P", "desc": "surface pressure analysis",       "source": "TIN11-42", "quote": "LP*A98 KWBR    surface pressure analysis"},
+    {"short_name": "HGT",  "t2": "H", "desc": "RTMA model terrain height",       "source": "TIN11-42", "quote": "LH*A98 KWBR    RTMA model terrain height"}
+  ],
+  "excluded_note": "Precipitation (APCP) is deliberately NOT in the compositional table. The TINs print it with a fixed A1 ('LEIA98', 'LEMA98') outside the '*' legend, and do not state a URMA 'LEQA98'. Composing LEQA98 by the URMA *=Q rule would be a guess, so APCP is left unresolved rather than risk a wrong header. Same for cloud amount (LAMA98, 5km CONUS only) and ceiling/specific-humidity/wave-height which the TINs do not list.",
+  "domain_a1_note": "Domain/resolution -> A1 character, read from the '*' legend text in the TINs. Each entry cites the verbatim legend it derives from. Precipitation (E) uses its own A1 letters per the TIN and is handled as a special case in the builder rather than the generic legend.",
+  "rtma_legend": "Where * is A for Alaska, C for Puerto Rico, G for Guam, H for Hawaii, I for 2.5km CONUS, M for five km CONUS.",
+  "domain_a1": [
+    {"dataset": "rtma", "resolution": "2p5", "domain": "conus",  "a1": "I", "source": "TIN11-42", "quote": "I for 2.5km CONUS"},
+    {"dataset": "rtma", "resolution": "5",   "domain": "conus",  "a1": "M", "source": "TIN11-42", "quote": "M for five km CONUS"},
+    {"dataset": "rtma", "resolution": "6",   "domain": "alaska", "a1": "A", "source": "TIN11-42", "quote": "A for Alaska"},
+    {"dataset": "rtma", "resolution": "3",   "domain": "alaska", "a1": "K", "source": "TIN13-39", "quote": "K for 3km Alaska RTMA"},
+    {"dataset": "rtma", "resolution": "2p5", "domain": "hawaii", "a1": "H", "source": "TIN11-42", "quote": "H for Hawaii"},
+    {"dataset": "rtma", "resolution": "2p5", "domain": "puertorico", "a1": "C", "source": "TIN11-42", "quote": "C for Puerto Rico"},
+    {"dataset": "rtma", "resolution": "2p5", "domain": "guam",   "a1": "G", "source": "TIN11-42", "quote": "G for Guam"},
+    {"dataset": "urma", "resolution": "2p5", "domain": "conus",  "a1": "Q", "source": "TIN13-39", "quote": "Q for 2.5km CONUS URMA"}
+  ]
+}
