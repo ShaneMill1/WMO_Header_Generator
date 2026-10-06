@@ -72,9 +72,9 @@ T1T2A1A2ii  CCCC  YYGGgg  (BBB)
 
 but the specific `A2ii` and `CCCC` for a product are a **human allocation
 decision**, made once when the product is added to dissemination and written
-down in an operational config or a public notice. WMO's own definition of `ii`
-is "a number to make this bulletin unique among ones with the same T1T2A1A2 and
-CCCC" — it carries no derivable meaning.
+down in an operational config or a public notice. The `ii` is a two-digit number
+assigned from the WMO/national-practice tables; it is a bookkeeping designator,
+not something derivable from the data.
 
 Even the operational tool (`tocgrib2`) doesn't compute headings; it looks them up
 in pre-written records and copies the string out, stamping only the `YYGGgg`
@@ -161,9 +161,12 @@ Store type: NEXRAD radar (CF/Radial)
 WMO: SDUS8 KTLX 081617
      product     : Digital Hydrometeor Classification
      code         : 165
+     description : Digital Hydrometeor Classification (N0H)
      elevation    : 0.5
      site (CCCC)  : KTLX
      authority    : nws-noaaport-radar -> noaaport-radar-products
+     note         : CCCC KTLX not in XR-09 directory (radar site codes are not WFO nodes)
+     source group : /KTLX/165_DHC
 Resolved 1 heading(s); 0 product(s) unresolved.
 ```
 
