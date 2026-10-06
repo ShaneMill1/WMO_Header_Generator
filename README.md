@@ -82,6 +82,46 @@ Resolved 1 heading(s); 0 product(s) unresolved.
 
 Add `--explain` to see the matching evidence and the verbatim source text.
 
+### RTMA / URMA (GRIB2 analysis) — resolves
+
+Analysis-grid fields that the NWS TINs assign a header to resolve; fields the
+TINs don't cover (cloud ceiling, specific humidity, …) correctly do not.
+
+```
+$ python read_icechunk.py --prefix "edr-api/rtma2p5_v2p10/2018-01/rtma2p5_v2p10-conus_lambert-2018-01.ic" --limit 5
+WMO: LTIA98 KWBR 312300
+     product     : TMP
+     description : temperature analysis
+     level       : 2.0 m
+     valid (UTC) : 2018-01-31T23:00
+     authority   : nws-rtma-urma -> TIN11-42 + TIN11-42
+     source group: /1/temperature_height_above_ground
+...
+Resolved 5 heading(s); 3 product(s) unresolved.
+Unresolved products: ['CEIL', 'SPFH', 'TCDC']
+```
+
+(URMA behaves the same, e.g. `LTQA98 KWBR` for temperature.)
+
+### GFS at native 0.25° (GRIB2) — parameter-level, with a caveat
+
+The archived GFS is on its native global grid, which is *not* a disseminated
+grid. The resolver won't claim a header for this exact grid, but it can report
+the header NWS assigns to the same field on its AWIPS grid — flagged as a
+parameter-level match, not an exact one:
+
+```
+$ python read_icechunk.py --prefix "edr-api/gfs0p25_v16p3/2021-01-01T00:00/gfs0p25_v16p3-global_latlon-2021-01-01T00:00.ic" --limit 5
+WMO: YHPY99 KWBC 110000
+     product     : HGT
+     description : HGT      1000 mb
+     match       : parameter-level (see note)
+     note        : NWS assigns this to the field on grid 'gfs_awips_1p0deg_003';
+                   the archive is the native file grid (1440x721 gdt0), which is
+                   not disseminated under a WMO header
+     authority   : ncep-gfs-awips -> grib2_awpgfs240.003:1
+```
+
 ### NEXRAD Level III, disseminated — resolves
 
 A radar store is detected automatically; local stores use `--local`.
@@ -131,16 +171,19 @@ Resolved 0 heading(s); 4 product(s) unresolved.
 
 ### What resolves, and why
 
-| Product | Resolves? | Why |
+| Product | Result | Why |
 | --- | --- | --- |
-| MRMS SBN product (e.g. 24-hour QPE) | ✅ `YAUP06 KWNR 301800` | assigned a header in the MRMS SBN notices |
-| GFS / GEFS / AQM on an AWIPS grid | ✅ | assigned a header in the tocgrib2 parm config |
-| RTMA / URMA analysis grid | ✅ | header pieces published in the NWS TINs |
-| NEXRAD Level III, SBN product (e.g. 165 DHC) | ✅ `SDUS8 KTLX 081617` | listed in the NOAAPort radar table |
+| MRMS SBN product (e.g. 24-hour QPE) | ✅ exact — `YAUP06 KWNR 301800` | assigned a header in the MRMS SBN notices |
+| RTMA / URMA analysis field in the TINs | ✅ exact — `LTIA98 KWBR 312300` | header pieces published in the NWS TINs |
+| NEXRAD Level III SBN product (e.g. 165 DHC) | ✅ exact — `SDUS8 KTLX 081617` | listed in the NOAAPort radar table |
+| GFS / GEFS at native 0.25° resolution | ⚠️ parameter-level — `YHPY99 KWBC 110000` | the native grid isn't disseminated, so the header for the same field on the AWIPS grid is reported with a caveat (only where that field is headered; otherwise unresolved) |
+| RTMA / URMA field not in the TINs (CEIL, SPFH, TCDC) | ❌ | no NWS record assigns it a header |
 | NEXRAD Level III, not on the SBN (e.g. 167, 168) | ❌ | real product, but never broadcast under a heading |
 | NEXRAD Level II base data | ❌ | distributed as whole-volume files (LDM/FTP), never headered |
-| GFS at native 0.25° resolution | ❌ | regridded to an AWIPS grid before any header is applied |
 
+Three kinds of result: an **exact** header (authoritative for that data), a
+**parameter-level** header (the field is headered on a different, disseminated
+grid — reported with a caveat, never silently), or **unresolved** with a reason.
 A ❌ is the correct answer, not a gap: those products genuinely have no WMO
 heading to find.
 
