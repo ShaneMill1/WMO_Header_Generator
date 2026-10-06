@@ -61,6 +61,44 @@ Two details worth calling out:
   reports the header NWS assigns to the *same field on its AWIPS grid*, flagged as
   **parameter-level** with a caveat, never as if it were the real bulletin.
 
+### Worked example (MRMS)
+
+It helps to think of resolving as a **join**: the store metadata is one row, the
+authoritative source is a table of products someone already assigned headers to,
+and we join on whatever key identifies the product. The matching row *contains*
+the header — we read it out, we don't compute it.
+
+![how a header is resolved](docs/resolve_example.png)
+
+Concretely, for the MRMS example at the top:
+
+1. **Read the identity from the store.** The variable's metadata gives
+   `short_name = "MultiSensor_QPE_24H_Pass2"` and `time = 2025-09-30T18:00`; the
+   store path `…conus_lambert…` gives `domain = CONUS`.
+
+2. **Find the matching source row.** At build time the MRMS SBN notice was parsed
+   into rows and indexed by product name. The identity's name + domain select one
+   row:
+
+   ```
+   product_names : ["MultiSensor_QPE_24H_Pass2", …]
+   domain        : "CONUS"
+   code          : "YAUP06"     ← TTAAII, written by a human in the notice
+   cccc          : "KWNR"       ← originating office, from the notice
+   ```
+
+3. **Read the header off the row, stamp the time from the data.**
+   `TTAAII = code = YAUP06`, `CCCC = cccc = KWNR` (both copied from the row), and
+   `YYGGgg = 301800` (the day/hour/minute computed from `2025-09-30T18:00`).
+
+   Result: **`YAUP06 KWNR 301800`.**
+
+The header `YAUP06 KWNR` was never derived from the data — it was assigned once,
+recorded in the notice, and we found it by matching the product's identity. The
+other sources differ only in the join key (and, for RTMA/URMA, the header is
+assembled from table pieces instead of copied whole), but the shape is the same:
+**identify → match a pre-written record → read the header, date it from the data.**
+
 ## It is a resolver, not a generator
 
 A heading cannot be computed from data. Its [form](https://www.weather.gov/tg/headef)

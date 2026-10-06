@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1340" height="560" viewBox="0 0 1340 560" font-family="Helvetica, Arial, sans-serif" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#8a94a6"/>
+    </marker>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1b2733" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <rect width="1340" height="560" fill="#ffffff"/>
+  <style>
+    .stage{fill:#9aa4b5;font-size:13px;font-weight:700;letter-spacing:1px;}
+    .sub{fill:#aab2c0;font-size:12px;}
+    .k{fill:#55617a;font-size:14px;}
+    .mono{font-family:'DejaVu Sans Mono',Menlo,monospace;}
+    .hdr{font-size:15px;font-weight:700;}
+  </style>
+
+  <text x="60" y="40" text-anchor="start" font-size="16" font-weight="700" fill="#33415c">Resolving is a join: identify the product, find its pre-written record, read the header out</text>
+
+  <!-- ===== LEFT: store metadata ===== -->
+  <text class="stage" x="60" y="92">STORE METADATA  (the identity)</text>
+  <g filter="url(#soft)">
+    <rect x="60" y="104" width="330" height="150" rx="10" fill="#eaf2f8" stroke="#2874a6"/>
+  </g>
+  <text class="k mono" x="80" y="134" fill="#1b4f72">short_name =</text>
+  <text class="k mono" x="80" y="154" fill="#1b2733" font-weight="700">  "MultiSensor_QPE_24H_Pass2"</text>
+  <text class="k mono" x="80" y="184" fill="#1b4f72">domain     =</text>
+  <text class="k mono" x="210" y="184" fill="#1b2733" font-weight="700">"CONUS"</text>
+  <text class="k mono" x="80" y="204" fill="#9aa4b5" font-size="11">   (from the store path …conus…)</text>
+  <text class="k mono" x="80" y="234" fill="#1b4f72">time       =</text>
+  <text class="k mono" x="210" y="234" fill="#1b2733" font-weight="700">2025-09-30T18:00</text>
+
+  <!-- join arrow -->
+  <path d="M392,180 C430,180 430,180 468,180" fill="none" stroke="#8a94a6" stroke-width="1.6" marker-end="url(#arr)"/>
+  <rect x="398" y="150" width="66" height="20" rx="4" fill="#f4ecf7"/>
+  <text x="431" y="164" text-anchor="middle" fill="#7d3c98" font-size="12">join on</text>
+  <text x="431" y="200" text-anchor="middle" fill="#7d3c98" font-size="11">name + domain</text>
+
+  <!-- ===== MIDDLE: matched source row ===== -->
+  <text class="stage" x="476" y="92">MATCHED SOURCE ROW  (MRMS SBN notice)</text>
+  <g filter="url(#soft)">
+    <rect x="476" y="104" width="400" height="200" rx="10" fill="#f4ecf7" stroke="#7d3c98"/>
+  </g>
+  <text class="k mono" x="496" y="134" fill="#4a235a">product_names: ["MultiSensor_QPE_24H_Pass2"]</text>
+  <text class="k mono" x="496" y="158" fill="#4a235a">domain       : "CONUS"</text>
+  <!-- highlight the header fields -->
+  <rect x="488" y="172" width="376" height="30" rx="5" fill="#eafaf1" stroke="#1e8449" stroke-dasharray="3 3"/>
+  <text class="k mono" x="496" y="192" fill="#145a32" font-weight="700">code         : "YAUP06"</text>
+  <text class="k mono" x="700" y="192" fill="#1e8449" font-size="11">→ TTAAII</text>
+  <rect x="488" y="208" width="376" height="30" rx="5" fill="#eafaf1" stroke="#1e8449" stroke-dasharray="3 3"/>
+  <text class="k mono" x="496" y="228" fill="#145a32" font-weight="700">cccc         : "KWNR"</text>
+  <text class="k mono" x="700" y="228" fill="#1e8449" font-size="11">→ CCCC</text>
+  <text class="k mono" x="496" y="262" fill="#9aa4b5" font-size="11">(written by a human in the notice,</text>
+  <text class="k mono" x="496" y="278" fill="#9aa4b5" font-size="11"> parsed into this row at build time)</text>
+
+  <!-- arrow to result -->
+  <path d="M878,200 C916,200 916,200 954,200" fill="none" stroke="#8a94a6" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <!-- ===== RIGHT: assembled header ===== -->
+  <text class="stage" x="962" y="92">WMO HEADER  (the result)</text>
+  <g filter="url(#soft)">
+    <rect x="962" y="150" width="330" height="100" rx="10" fill="#d5f5e3" stroke="#1e8449" stroke-width="1.6"/>
+  </g>
+  <text x="1127" y="196" text-anchor="middle" class="hdr mono" fill="#145a32" font-size="20">YAUP06 KWNR 301800</text>
+  <text x="1127" y="226" text-anchor="middle" fill="#45745a" font-size="12">TTAAII&#160;&#160;&#160;&#160;&#160;CCCC&#160;&#160;&#160;&#160;YYGGgg</text>
+
+  <!-- provenance callouts under the result -->
+  <text x="962" y="300" class="stage" fill="#9aa4b5">WHERE EACH PIECE COMES FROM</text>
+  <g font-size="13">
+    <circle cx="972" cy="330" r="5" fill="#7d3c98"/>
+    <text x="986" y="335" fill="#55617a"><tspan class="mono" fill="#4a235a">YAUP06</tspan>, <tspan class="mono" fill="#4a235a">KWNR</tspan> — copied from the source row</text>
+    <circle cx="972" cy="358" r="5" fill="#2874a6"/>
+    <text x="986" y="363" fill="#55617a"><tspan class="mono" fill="#1b4f72">301800</tspan> — computed from the data's time</text>
+    <text x="986" y="383" fill="#9aa4b5" font-size="11">(30th day, 18:00 UTC → day/hour/minute)</text>
+  </g>
+
+  <!-- bottom note -->
+  <rect x="60" y="430" width="1232" height="96" rx="10" fill="#fbfcfe" stroke="#dde3ec"/>
+  <text x="80" y="462" fill="#33415c" font-size="14" font-weight="700">The header is retrieved, not calculated.</text>
+  <text x="80" y="486" fill="#55617a" font-size="13">Other sources change only the join key — NEXRAD: product code + elevation + site · GFS/GEFS/AQM: grid + parameter + level + forecast hour ·</text>
+  <text x="80" y="506" fill="#55617a" font-size="13">RTMA/URMA: parameter + domain (header assembled from table pieces). The shape is always: identify → match a pre-written record → read the header, date it from the data.</text>
+</svg>
