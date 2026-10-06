@@ -32,6 +32,35 @@ Four ideas, left to right:
 4. **Resolve** — match the product against those sources. Either it traces to a
    record (you get a header) or it does not (you get a clear reason).
 
+## How the mapping works
+
+Step 4 is the heart of it: the metadata and the authoritative source don't share
+a single common key, so each source family is matched on the fields that source
+actually keys on. In every case the heading's `TTAAII` and `CCCC` come from the
+source; only `YYGGgg` (day/hour/minute) is read from the data — the one exception
+is radar, where `CCCC` is the radar site, also read from the data.
+
+| Source | Fields read from the store | Matched against | Produces the header by |
+| --- | --- | --- | --- |
+| **MRMS** (SBN notices) | product `short_name`; domain (from the store path, e.g. `…conus…`) | normalized product name + domain, in the notice entries | copying `code` → `TTAAII` and `cccc` → `CCCC` straight from the matched entry |
+| **RTMA / URMA** (TINs) | parameter `short_name`; `dataset\|resolution\|domain` key (from the store path, e.g. `rtma\|2p5\|conus`) | parameter → `T2` lookup, and dataset key → `A1` lookup, in the TIN tables | **composing** `TTAAII = T1 + T2 + A1 + A2ii` (T1/A2ii/CCCC are fixed per table) |
+| **GFS / GEFS / AQM** (tocgrib2 parm) | `grib_section3` (grid), `short_name` (→ parameter), PDT fields: level, forecast hour, generating process, statistical window | grid match + parameter + every PDT field the parm record pins (wildcards where the record leaves `-9999`) | copying `TTAAII` / `CCCC` from the matched parm record |
+| **NEXRAD L3** (NOAAPort table) | `product_code`, `elevation_angle`, `site_id`, `scan_time` | `(product_code, elevation)` → one table row → mnemonic + `SDUS` tier | `TTAAII` = the row's `SDUS<tier>`; `CCCC` = `site_id` from the data |
+
+Two details worth calling out:
+
+- **The parameter is never stored, so it's inferred.** GRIB2 archives keep the
+  product's `short_name` but not its discipline/category/number. Those are looked
+  up from `short_name` against the grib2io parameter tables, then matched against
+  the parm record. If a name maps to more than one parameter, that's reported as
+  ambiguous rather than guessed (this is why some GFS/GEFS fields like `CFRZR`
+  come back unresolved).
+- **Exact vs parameter-level (GRIB2).** If the store's grid *is* a disseminated
+  grid, the match is **exact** — the header is authoritative for that data. If the
+  store is on a native, non-disseminated grid (e.g. GFS at 0.25°), the resolver
+  reports the header NWS assigns to the *same field on its AWIPS grid*, flagged as
+  **parameter-level** with a caveat, never as if it were the real bulletin.
+
 ## It is a resolver, not a generator
 
 A heading cannot be computed from data. Its [form](https://www.weather.gov/tg/headef)

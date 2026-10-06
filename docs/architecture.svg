@@ -88,7 +88,7 @@
 
   <!-- ===================== (4) RESOLVE ===================== -->
   <text class="stage" x="860" y="430">(4)  RESOLVE</text>
-  <text class="sub"   x="860" y="448">match to an authority</text>
+  <text class="sub"   x="860" y="448">match on each source's own key</text>
   <g filter="url(#soft)">
     <rect x="855" y="464" width="200" height="80" rx="12" fill="#fef9e7" stroke="#b7950b" stroke-width="1.6"/>
   </g>
