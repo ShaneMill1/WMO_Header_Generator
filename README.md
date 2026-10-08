@@ -141,12 +141,19 @@ same.
 
 ## Accurate or nothing
 
-A heading is emitted only when every field traces to an authoritative record;
-otherwise the result is an `Unresolved` stating what was missing. The resolver
-does not default a domain or originating center, invent a timestamp, or choose
-between candidates the evidence cannot distinguish. An unresolved result is often
-the correct answer; see the Demo for which products have a heading and which do
-not.
+Every `TTAAII`/`CCCC` the resolver emits traces to an authoritative record; the
+tool never fabricates one. It does not default a domain or originating center,
+invent a timestamp, or choose between candidates the evidence cannot distinguish.
+When nothing traces, the result is an `Unresolved` stating what was missing, and
+an unresolved result is often the correct answer.
+
+The one qualified case is grid: for a GRIB2 store on a native, non-disseminated
+grid, the resolver reports the header NWS assigns to the *same field on its
+disseminated grid*, flagged as **parameter-level** with a caveat. The codes are
+still copied from a real record; what the caveat makes explicit is that they
+identify the field, not a bulletin for this exact grid (there is none). This is
+reported, never silent, and it is distinct from an exact match. See the Demo for
+which products resolve exactly, which resolve with a caveat, and which do not.
 
 ## Demo
 
