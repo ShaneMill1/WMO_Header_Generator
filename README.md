@@ -59,9 +59,16 @@ YAUP06   KWNR   301800   (BBB)
 
 ## Mapping
 
-Resolution is a lookup, not a computation. The tool identifies the product,
-finds the record in an authoritative table that lists it, and reads the heading
-off that record. Only `YYGGgg` is computed, from the data's timestamp.
+Resolution is a lookup, not a computation. A heading's
+[fields](https://www.weather.gov/tg/headef) `TTAAII` and `CCCC` are a
+human allocation decision, made once when a product is added to dissemination and
+recorded in an operational config or public notice; they are not derivable from
+the data. (The `ii` of `TTAAII`, for instance, is a two-digit designator assigned
+from the WMO/national-practice tables.) Even the operational tool (`tocgrib2`)
+does not compute headings; it looks them up in pre-written records and copies the
+string out, stamping only `YYGGgg`. This project runs that lookup in reverse:
+given archived metadata, find the allocation already made, and where none exists,
+report that there is no heading to find.
 
 Different products are identified by different attributes (radar by site and
 tilt, a model field by grid and variable), so there is no single lookup key. Each
@@ -128,30 +135,9 @@ step, for the MRMS example at the top of this README:
 
    Result: **`YAUP06 KWNR 301800`.**
 
-`YAUP06 KWNR` was assigned once, recorded in the notice, and found by matching
-the product's identity. The other sources differ only in the join key (and, for
-RTMA/URMA, the heading is assembled from table pieces rather than copied whole),
-but the shape is identical: **identify → match a pre-written record → read the
-heading, date it from the data.**
-
-## Resolver, not generator
-
-The [form](https://www.weather.gov/tg/headef) of a heading is fixed:
-
-```
-T1T2A1A2ii  CCCC  YYGGgg  (BBB)
-```
-
-but the specific `A2ii` and `CCCC` for a product are a human allocation decision,
-made once when the product is added to dissemination and recorded in an
-operational config or public notice. The `ii` is a two-digit designator assigned
-from the WMO/national-practice tables; it is not derivable from the data.
-
-The operational tool (`tocgrib2`) does not compute headings either; it looks
-them up in pre-written records and copies the string out, stamping only the
-`YYGGgg` day/hour from the data. This project runs that lookup in reverse: given
-archived metadata, find the allocation already made. Where none exists, there is
-no heading to find.
+The other sources differ only in the join key, and for RTMA/URMA the heading is
+assembled from table pieces rather than copied whole; otherwise the flow is the
+same.
 
 ## Accurate or nothing
 
@@ -207,10 +193,8 @@ Unresolved products: ['CEIL', 'SPFH', 'TCDC']
 
 ### GFS at native 0.25° (GRIB2): parameter-level, with a caveat
 
-The archived GFS is on its native global grid, which is *not* a disseminated
-grid. The resolver won't claim a header for this exact grid, but it can report
-the header NWS assigns to the same field on its AWIPS grid, flagged as a
-parameter-level match, not an exact one:
+The archived GFS is on its native global grid, which is not disseminated, so the
+result is a parameter-level match (see the `note` field):
 
 ```
 $ python read_icechunk.py --prefix "edr-api/gfs0p25_v16p3/2021-01-01T00:00/gfs0p25_v16p3-global_latlon-2021-01-01T00:00.ic" --limit 5
@@ -226,11 +210,10 @@ WMO: YHPY99 KWBC 110000
 
 ### HRRR, CF-encoded (GRIB2): parameter-level, with a caveat
 
-A CIRRUS HRRR store carries its GRIB2 identity as CF metadata (no
-`grib_section3`). The store type and model are detected automatically; the grid
-is read from the CF `spatial_ref`, and the field resolves to HRRR's own `KWBY`
-header. Being on the native 3 km grid (not the disseminated 2.5 km grid 184), it
-is a parameter-level match:
+A CIRRUS HRRR store carries its GRIB2 identity as CF metadata, not a
+`grib_section3` array. The store type and model are detected automatically, and
+the field resolves to HRRR's own `KWBY` header. As with GFS, the native grid
+(here 3 km, not the disseminated 2.5 km grid 184) makes it parameter-level:
 
 ```
 $ python read_icechunk.py --local /efs/cirrus_test_data/HRRR-2026-09-21-sample-v2.icechunk --limit 1
@@ -370,7 +353,7 @@ headings; that is a dissemination decision, not a property of the data.
 | `tocgrib2_parm.py` · `nws_notice.py` · `nexrad_radar.py` | parsers for each source format |
 | `registry/sources.json` | the pinned source manifest; the only hand-written data file |
 | `tools/` | dev utilities: `inspect_icechunk.py`, `make_synthetic_l3.py` |
-| `docs/` | architecture diagram and a step-by-step demo |
+| `docs/` | diagrams (architecture, resolve example, registry schema) and notes |
 | `tests/` | hermetic tests (no network) |
 
 The registry itself (`registry/registry.db`, a SQLite file) is build output and
