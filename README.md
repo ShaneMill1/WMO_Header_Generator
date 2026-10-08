@@ -309,6 +309,36 @@ Three result types: an **exact** heading (authoritative for that data), a
 grid, reported with a caveat), or **unresolved** with a reason. A ❌ reflects a
 product with no WMO heading to find, not a gap in coverage.
 
+## Installation
+
+Python 3.13 is recommended (the project is developed and tested against it).
+Create an environment and install the runtime dependencies:
+
+```bash
+# venv + pip
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# or conda / mamba
+mamba create -n cirrus_wmo python=3.13
+mamba activate cirrus_wmo
+pip install -r requirements.txt
+```
+
+That installs `icechunk`, `xarray`, `zarr`, `numpy`, and `pypdf` at the versions
+the project is tested against. To run the test suite as well, add the dev
+dependencies:
+
+```bash
+pip install -r requirements-dev.txt   # adds pytest
+```
+
+`grib2io` is deliberately not a dependency: `build_registry.py` downloads
+grib2io's source tarball from a pinned URL and parses its parameter tables
+directly, so there is nothing extra to install for the registry build. Reading
+S3 stores needs AWS credentials in the environment (`icechunk` handles the S3
+access); local stores via `--local` need none.
+
 ## Usage
 
 ```bash
@@ -359,6 +389,7 @@ headings; that is a dissemination decision, not a property of the data.
 | `registry_db.py` | read/write the SQLite registry database |
 | `tocgrib2_parm.py` · `nws_notice.py` · `nexrad_radar.py` | parsers for each source format |
 | `registry/sources.json` | the pinned source manifest; the only hand-written data file |
+| `requirements.txt` / `requirements-dev.txt` | pinned runtime and test dependencies |
 | `tools/` | dev utilities: `inspect_icechunk.py`, `make_synthetic_l3.py` |
 | `docs/` | diagrams (architecture, resolve example, registry schema) and notes |
 | `tests/` | hermetic tests (no network) |

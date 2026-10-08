@@ -1,0 +1,10 @@
+# Development and test dependencies.
+#
+#   pip install -r requirements.txt -r requirements-dev.txt
+#
+# The test suite is hermetic (no network), so these are all that's needed to
+# run `pytest tests/`.
+
+-r requirements.txt
+
+pytest==9.1.1

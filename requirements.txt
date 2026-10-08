@@ -1,0 +1,14 @@
+# Runtime dependencies for cirrus_wmo.
+# Versions are those the project is developed and tested against (Python 3.13).
+#
+#   pip install -r requirements.txt
+#
+# Note: grib2io is NOT a dependency. build_registry.py downloads grib2io's
+# source tarball from a pinned URL and parses its parameter tables directly,
+# so grib2io does not need to be installed.
+
+icechunk==2.2.2      # open/read icechunk repositories (local and S3)
+xarray==2026.7.0     # dataset/DataTree access over the zarr stores
+zarr==3.4.0          # zarr v3 store format (pulled in by icechunk/xarray)
+numpy==2.5.3         # array handling in the identity readers
+pypdf==6.19.0        # parse the NOAAPort radar products PDF at build time
