@@ -75,10 +75,11 @@ why there is none (5). The one-line version:
 2. **Identify** — read the dataset's metadata to work out what the product is.
    Model data and radar describe themselves differently, so each gets its own
    reader.
-3. **Authoritative sources** — a local library ("the registry") built from
+3. **The registry** — a local SQLite database (`registry.db`) built from
    official NWS / NCEP / WMO documents that say which product gets which label.
    Each document is pinned to an exact version and checksum, so the answers are
-   traceable, not guessed.
+   traceable, not guessed. (What's inside it is covered under "Registry
+   database" below.)
 4. **Resolve** — match the product against those sources.
 5. **Result** — either a label (it traced to a record) or an "unresolved" with a
    clear reason.
