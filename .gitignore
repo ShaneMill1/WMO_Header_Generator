@@ -11,3 +11,6 @@ __pycache__/
 # every build and not meant to be diffed or committed. Rebuild with:
 #   python build_registry.py
 registry/registry.db
+# Metadata inventory dumps (build output of tools/metadata_inventory.py).
+# Reproducible from the stores; see docs/metadata_gap.md.
+*_meta.json
