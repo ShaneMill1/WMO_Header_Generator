@@ -169,7 +169,7 @@ All output below is real. Commands use the project's Python environment.
 ### MRMS (GRIB2): resolves
 
 ```
-$ python read_icechunk.py --limit 5
+$ python read_icechunk.py --prefix "edr-api/mrms_v12p2/2025-09/mrms_v12p2-conus_lambert-2025-09.ic" --limit 5
 WMO: YAUP06 KWNR 301800
      product     : MultiSensor_QPE_24H_Pass2
      description : MultiSensor_QPE_[01,03,06,12,24,48,72]H_Pass2
@@ -180,7 +180,9 @@ WMO: YAUP06 KWNR 301800
 Resolved 1 heading(s); 0 product(s) unresolved.
 ```
 
-Add `--explain` to see the matching evidence and the verbatim source text.
+This MRMS prefix is also the built-in default, so running `read_icechunk.py` with
+no arguments resolves the same store. Add `--explain` to see the matching evidence
+and the verbatim source text.
 
 ### RTMA / URMA (GRIB2 analysis): resolves
 
