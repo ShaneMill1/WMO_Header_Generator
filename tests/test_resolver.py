@@ -9,12 +9,12 @@ Most tests build a small synthetic registry so they are hermetic and fast.
 committed registry, which is the regression guard that matters in practice.
 """
 
-import gzip
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+
+import registry_db
 
 from wmo_header import (
     REGISTRY_DIR,
@@ -59,13 +59,8 @@ UNASSIGNED_GRID_S3 = {
 
 
 def _write_source(d: Path, sid: str, manifest: dict, entries: list):
-    if entries:
-        p = d / f"{sid}.entries.jsonl.gz"
-        with gzip.open(p, "wt", encoding="utf-8") as fh:
-            for e in entries:
-                fh.write(json.dumps(e) + "\n")
-        manifest["entries_file"] = p.name
-    (d / f"{sid}.manifest.json").write_text(json.dumps(manifest))
+    """Add one source to the test registry database at ``d/registry.db``."""
+    registry_db.upsert_source(d / "registry.db", {"manifest": manifest, "entries": entries})
 
 
 def _pdt(**over):
@@ -367,7 +362,7 @@ class TestCombinedResolve:
 
 
 @pytest.mark.skipif(
-    not (REGISTRY_DIR / "nws-mrms-sbn.manifest.json").exists(),
+    not (REGISTRY_DIR / "registry.db").exists(),
     reason="built registry not present; run build_registry.py",
 )
 class TestAgainstRealRegistry:

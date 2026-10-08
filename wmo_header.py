@@ -31,7 +31,6 @@ its assignments:
 
 from __future__ import annotations
 
-import gzip
 import json
 import re
 from dataclasses import dataclass, field
@@ -312,18 +311,21 @@ class Registry:
 
 
 def _read_sources(registry_dir: Path) -> list:
-    sources: list = []
-    for man_path in sorted(registry_dir.glob("*.manifest.json")):
-        manifest = json.loads(man_path.read_text())
-        entries: list = []
-        entries_name = manifest.get("entries_file")
-        if entries_name:
-            ep = registry_dir / entries_name
-            if ep.exists():
-                with gzip.open(ep, "rt", encoding="utf-8") as fh:
-                    entries = [json.loads(line) for line in fh if line.strip()]
-        sources.append(LoadedSource(manifest=manifest, entries=entries))
-    return sources
+    """Load the generated registry from ``registry.db``.
+
+    The registry is a SQLite database (built by ``build_registry.py``). Each row
+    is reconstructed into the same ``LoadedSource(manifest, entries)`` the
+    resolver has always consumed, so nothing downstream changes.
+    """
+    import registry_db
+
+    db_path = registry_dir / "registry.db"
+    if not registry_db.db_exists(db_path):
+        return []
+    return [
+        LoadedSource(manifest=manifest, entries=entries)
+        for manifest, entries in registry_db.read_db(db_path)
+    ]
 
 
 def load_registry(

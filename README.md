@@ -341,14 +341,24 @@ headers — that is a dissemination decision, not a property of the data.
 | `grib_identity.py` / `radar_identity.py` | read a store's metadata into a product identity (`grib_identity` handles both the `grib_section3` and CF encodings) |
 | `wmo_header.py` | match an identity to a header, or return `Unresolved` |
 | `build_registry.py` | fetch, verify, and parse the pinned sources into the registry |
+| `registry_db.py` | read/write the SQLite registry database |
 | `tocgrib2_parm.py` · `nws_notice.py` · `nexrad_radar.py` | parsers for each source format |
 | `registry/sources.json` | the pinned source manifest — the only hand-written data file |
 | `tools/` | dev utilities: `inspect_icechunk.py`, `make_synthetic_l3.py` |
 | `docs/` | architecture diagram and a step-by-step demo |
 | `tests/` | hermetic tests (no network) |
 
-The registry itself (`registry/*.jsonl.gz`, `*.manifest.json`) is build output
-and is not committed; `read_icechunk.py` builds it on first run. `sources.json`
-is the audit trail — it pins every upstream document by tag and sha256, and the
+The registry itself (`registry/registry.db`, a SQLite file) is build output and
+is not committed; `read_icechunk.py` builds it on first run. `sources.json` is
+the audit trail — it pins every upstream document by tag and sha256, and the
 build refuses to proceed on a mismatch. Every source is a public NWS / NCEP / WMO
-document, cited per entry in the generated manifests.
+document, cited per entry in the database.
+
+### Registry database
+
+`build_registry.py` writes `registry/registry.db`. It has three tables — `meta`
+(build provenance), `source` (one row per source; the per-source manifest as
+JSON), and `entry` (one row per record; the record as JSON) — and the resolver
+loads it back into the same in-memory lookup maps it always used. See the schema:
+
+![registry schema](docs/registry_schema.png)

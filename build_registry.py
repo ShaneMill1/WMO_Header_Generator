@@ -28,7 +28,6 @@ import argparse
 import ast
 import csv
 import fnmatch
-import gzip
 import hashlib
 import io
 import json
@@ -48,10 +47,12 @@ from nws_notice import (
     parse_notice,
 )
 from tocgrib2_parm import parse_text, validate
+import registry_db
 
 HERE = Path(__file__).parent
 REGISTRY_DIR = HERE / "registry"
 SOURCES_JSON = REGISTRY_DIR / "sources.json"
+REGISTRY_DB = REGISTRY_DIR / "registry.db"
 
 
 class BuildError(RuntimeError):
@@ -928,27 +929,20 @@ def build_nws_notice_source(src: dict, cache_dir: Path) -> dict:
     }
 
 
-def write_output(built: dict, out_dir: Path) -> None:
-    sid = built["source"]["id"]
-    out_dir.mkdir(parents=True, exist_ok=True)
+def build_manifest(built: dict) -> dict:
+    """Assemble a source's manifest dict (no I/O).
 
+    The manifest holds everything about a source except its per-entry rows:
+    provenance (``source``, ``files``), the entry count, and the per-source
+    lookup data that lives outside the entries (code tables, grid specs, CCCC
+    lists, abbreviation maps, analysis-header tables). The entries themselves are
+    carried alongside in ``built["entries"]`` and stored separately.
+    """
     manifest = {
         "source": built["source"],
         "files": built["files"],
         "entry_count": len(built["entries"]),
     }
-
-    # Entries as gzipped JSON Lines (62k+ records; keeps the repo reasonable).
-    # Sources that carry no per-entry records (code tables live in the manifest)
-    # do not get an entries file at all.
-    entries_path = None
-    if built["entries"]:
-        entries_path = out_dir / f"{sid}.entries.jsonl.gz"
-        with gzip.open(entries_path, "wt", encoding="utf-8") as fh:
-            for e in built["entries"]:
-                fh.write(json.dumps(e, separators=(",", ":")) + "\n")
-        manifest["entries_file"] = entries_path.name
-        manifest["entries_sha256"] = sha256_bytes(entries_path.read_bytes())
     if "conflicts" in built:
         manifest["conflicts"] = built["conflicts"]
     if "code_tables" in built:
@@ -967,12 +961,7 @@ def write_output(built: dict, out_dir: Path) -> None:
         manifest["cccc"] = built["source"]["cccc"]
         manifest["t1"] = built["source"]["t1"]
         manifest["a2ii"] = built["source"]["a2ii"]
-    manifest_path = out_dir / f"{sid}.manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-
-    if entries_path is not None:
-        print(f"  wrote {entries_path.name} ({entries_path.stat().st_size/1e6:.2f} MB)")
-    print(f"  wrote {manifest_path.name}")
+    return manifest
 
 
 def build_nexrad_radar_source(src: dict, cache_dir: Path) -> dict:
@@ -1050,12 +1039,17 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--source", default=None, help="Build only this source id.")
     ap.add_argument("--cache-dir", default="/tmp/wmo_registry_src", type=Path)
-    ap.add_argument("--out-dir", default=REGISTRY_DIR, type=Path)
+    ap.add_argument("--out-dir", default=REGISTRY_DIR, type=Path,
+                    help="Registry directory; the database is written to "
+                         "<out-dir>/registry.db")
     args = ap.parse_args(argv)
+
+    db_path = Path(args.out_dir) / REGISTRY_DB.name
 
     manifest = json.loads(SOURCES_JSON.read_text())
     sources = manifest["sources"]
-    if args.source:
+    single = bool(args.source)
+    if single:
         sources = [s for s in sources if s["id"] == args.source]
         if not sources:
             print(f"No such source: {args.source}", file=sys.stderr)
@@ -1073,6 +1067,7 @@ def main(argv=None) -> int:
         "tocgrib2_parm_url": build_tocgrib2_url_source,
     }
 
+    built_all: list = []
     for src in sources:
         builder = builders.get(src["kind"])
         if builder is None:
@@ -1083,7 +1078,19 @@ def main(argv=None) -> int:
         except BuildError as e:
             print(f"BUILD FAILED for {src['id']}: {e}", file=sys.stderr)
             return 1
-        write_output(built, args.out_dir)
+        built_all.append({"manifest": build_manifest(built), "entries": built["entries"]})
+
+    # A full build rewrites the database from scratch; a single-source build
+    # upserts just that source so the others are left intact.
+    if single:
+        for b in built_all:
+            registry_db.upsert_source(db_path, b)
+            print(f"  upserted {b['manifest']['source']['id']} "
+                  f"({b['manifest']['entry_count']} entries)")
+    else:
+        registry_db.write_db(db_path, built_all)
+        total = sum(b["manifest"]["entry_count"] for b in built_all)
+        print(f"Wrote {db_path.name}: {len(built_all)} sources, {total} entries")
 
     return 0
 
