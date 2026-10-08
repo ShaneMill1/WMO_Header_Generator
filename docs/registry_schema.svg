@@ -1,100 +1,105 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="760" viewBox="0 0 1440 760" font-family="Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="860" viewBox="0 0 1480 860" font-family="Helvetica, Arial, sans-serif">
   <defs>
-    <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L8,3 L0,6 Z" fill="#8a94a6"/>
+    <marker id="arr" markerWidth="11" markerHeight="11" refX="8" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3.5 L0,7 Z" fill="#8a94a6"/>
     </marker>
-    <marker id="fk" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse">
-      <path d="M0,0 L10,4 L0,8" fill="none" stroke="#b7950b" stroke-width="1.6"/>
-    </marker>
-    <filter id="soft" x="-10%" y="-10%" width="120%" height="130%">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1b2733" flood-opacity="0.10"/>
+    <filter id="soft" x="-8%" y="-8%" width="118%" height="128%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1b2733" flood-opacity="0.12"/>
     </filter>
   </defs>
-  <rect width="1440" height="760" fill="#ffffff"/>
+  <rect width="1480" height="860" fill="#ffffff"/>
   <style>
-    .title  { fill:#33415c; font-size:17px; font-weight:700; }
-    .sub    { fill:#9aa4b5; font-size:13px; }
-    .tname  { fill:#ffffff; font-size:15px; font-weight:700; font-family:'DejaVu Sans Mono',Menlo,monospace; }
-    .col    { fill:#1b2733; font-size:13.5px; font-family:'DejaVu Sans Mono',Menlo,monospace; }
-    .pk     { fill:#b7950b; font-size:11px; font-weight:700; }
-    .note   { fill:#55617a; font-size:12.5px; }
-    .lbl    { fill:#6b7486; font-size:12px; }
-    .hdr    { fill:#55617a; font-size:12.5px; font-weight:700; letter-spacing:1px; }
+    .h1   { fill:#33415c; font-size:19px; font-weight:700; }
+    .sub  { fill:#8a94a6; font-size:14px; }
+    .tag  { fill:#9aa4b5; font-size:12.5px; font-weight:700; letter-spacing:1.5px; }
+    .lab  { fill:#33415c; font-size:15px; font-weight:700; }
+    .txt  { fill:#55617a; font-size:13px; }
+    .mono { font-family:'DejaVu Sans Mono',Menlo,monospace; }
+    .kv   { fill:#1b2733; font-size:12.5px; font-family:'DejaVu Sans Mono',Menlo,monospace; }
+    .kvk  { fill:#7a6a86; font-size:12.5px; font-family:'DejaVu Sans Mono',Menlo,monospace; }
+    .pill { fill:#55617a; font-size:12px; }
   </style>
 
-  <text class="title" x="40" y="44">registry.db — SQLite schema</text>
-  <text class="sub"   x="40" y="66">build output of build_registry.py from the pinned sources in sources.json; the sole input the resolver loads</text>
+  <text class="h1"  x="40" y="46">registry.db — the tool's lookup library, in plain terms</text>
+  <text class="sub" x="40" y="70">One file on disk. Think of it as a filing cabinet: a few folders, and inside each folder a stack of cards.</text>
 
-  <!-- ===================== meta ===================== -->
+  <!-- ============ FOLDER: source ============ -->
+  <text class="tag" x="60" y="120">THE FOLDERS  —  one per official document the labels came from</text>
+
+  <!-- folder tab + body -->
   <g filter="url(#soft)">
-    <rect x="40" y="100" width="300" height="118" rx="10" fill="#ffffff" stroke="#8a94a6"/>
-    <rect x="40" y="100" width="300" height="34" rx="10" fill="#8a94a6"/>
-    <rect x="40" y="118" width="300" height="16" fill="#8a94a6"/>
+    <path d="M60 140 h150 l20 24 h300 a10 10 0 0 1 10 10 v150 a10 10 0 0 1 -10 10 h-470 a10 10 0 0 1 -10 -10 v-184 a10 10 0 0 1 10 -10 z"
+          fill="#f4ecf7" stroke="#7d3c98" stroke-width="1.5"/>
   </g>
-  <text class="tname" x="58" y="123">meta</text>
-  <text class="sub" x="210" y="123" fill="#eef2f7" font-size="12">build provenance</text>
-  <text class="col" x="58" y="158"><tspan class="pk">PK </tspan>key    TEXT</text>
-  <text class="col" x="58" y="182">    value  TEXT</text>
-  <text class="note" x="58" y="206">schema_version, built_at</text>
+  <text class="lab" x="80" y="196" fill="#4a235a">Folder: “nws-mrms-sbn”</text>
+  <text class="txt" x="80" y="218" fill="#6a4a7a">the NWS notice that lists MRMS products</text>
+  <text class="txt" x="80" y="246" fill="#55617a">Each folder just records WHERE a set of labels</text>
+  <text class="txt" x="80" y="264" fill="#55617a">came from, plus any reference tables that</text>
+  <text class="txt" x="80" y="282" fill="#55617a">document needs. Other folders:</text>
+  <text class="kvk" x="80" y="306">“ncep-gfs-awips”, “nws-noaaport-radar”, …</text>
 
-  <!-- ===================== source ===================== -->
+  <!-- small stacked folders behind, hinting "many" -->
+  <rect x="548" y="150" width="36" height="188" rx="8" fill="#efe4f5" stroke="#b98fd0"/>
+  <rect x="560" y="158" width="36" height="188" rx="8" fill="#e7d6f0" stroke="#b98fd0"/>
+
+  <!-- ============ CARDS: entry ============ -->
+  <text class="tag" x="760" y="120">THE CARDS  —  one per product→label assignment inside a folder</text>
+
+  <!-- card 1 -->
   <g filter="url(#soft)">
-    <rect x="40" y="270" width="430" height="240" rx="10" fill="#ffffff" stroke="#7d3c98"/>
-    <rect x="40" y="270" width="430" height="34" rx="10" fill="#7d3c98"/>
-    <rect x="40" y="288" width="430" height="16" fill="#7d3c98"/>
+    <rect x="760" y="140" width="400" height="150" rx="10" fill="#ffffff" stroke="#2874a6" stroke-width="1.5"/>
   </g>
-  <text class="tname" x="58" y="293">source</text>
-  <text class="sub" x="300" y="293" fill="#f4ecf7" font-size="12">one row per registry source</text>
-  <text class="col" x="58" y="330"><tspan class="pk">PK </tspan>id           TEXT</text>
-  <text class="note" x="300" y="330">e.g. ncep-gfs-awips</text>
-  <text class="col" x="58" y="356">    kind         TEXT</text>
-  <text class="note" x="300" y="356">tocgrib2_parm, nws_notice…</text>
-  <text class="col" x="58" y="382">    entry_count  INTEGER</text>
-  <text class="col" x="58" y="408">    manifest     TEXT (JSON)</text>
-  <rect x="56" y="422" width="398" height="74" rx="6" fill="#f4ecf7"/>
-  <text class="note" x="68" y="442" fill="#4a235a">the per-source data that is NOT rows:</text>
-  <text class="note" x="68" y="460" fill="#4a235a">grid specs · code tables · valid CCCC ·</text>
-  <text class="note" x="68" y="478" fill="#4a235a">AWIPS xref · analysis T2/A1 tables ·</text>
-  <text class="note" x="68" y="496" fill="#4a235a">grib2io abbrev→parameter map · provenance</text>
+  <text class="lab" x="782" y="168" fill="#1b4f72">A card from the MRMS folder</text>
+  <line x1="782" y1="178" x2="1138" y2="178" stroke="#dbe6f0"/>
+  <text class="kvk" x="782" y="202">product</text><text class="kv" x="900" y="202">MultiSensor_QPE_24H_Pass2</text>
+  <text class="kvk" x="782" y="224">region</text><text class="kv" x="900" y="224">CONUS</text>
+  <text class="kv"  x="782" y="252" fill="#145a32">label “what” (TTAAII) = YAUP06</text>
+  <text class="kv"  x="782" y="274" fill="#145a32">label “who”  (CCCC)   = KWNR</text>
 
-  <!-- ===================== entry ===================== -->
+  <!-- card 2 (radar) peeking -->
   <g filter="url(#soft)">
-    <rect x="610" y="270" width="430" height="240" rx="10" fill="#ffffff" stroke="#2874a6"/>
-    <rect x="610" y="270" width="430" height="34" rx="10" fill="#2874a6"/>
-    <rect x="610" y="288" width="430" height="16" fill="#2874a6"/>
+    <rect x="784" y="312" width="400" height="128" rx="10" fill="#ffffff" stroke="#2874a6" stroke-width="1.5"/>
   </g>
-  <text class="tname" x="628" y="293">entry</text>
-  <text class="sub" x="870" y="293" fill="#eaf2f8" font-size="12">one row per registry entry</text>
-  <text class="col" x="628" y="330"><tspan class="pk">PK </tspan>rowid      INTEGER</text>
-  <text class="col" x="628" y="356"><tspan class="pk" fill="#b7950b">FK </tspan>source_id  TEXT</text>
-  <text class="note" x="880" y="356">→ source.id (indexed)</text>
-  <text class="col" x="628" y="382">    kind       TEXT</text>
-  <text class="col" x="628" y="408">    data       TEXT (JSON)</text>
-  <rect x="626" y="422" width="398" height="74" rx="6" fill="#eaf2f8"/>
-  <text class="note" x="638" y="442" fill="#1b4f72">the row records, one dict each:</text>
-  <text class="note" x="638" y="460" fill="#1b4f72">• nws_notice  → product_names, code, cccc, domain</text>
-  <text class="note" x="638" y="478" fill="#1b4f72">• tocgrib2_parm → ttaaii, cccc, grid, pdt, desc …</text>
-  <text class="note" x="638" y="496" fill="#1b4f72">• nexrad_radar → product_code, nnn, ttaaii_prefix …</text>
+  <text class="lab" x="806" y="340" fill="#1b4f72">A card from the radar folder</text>
+  <line x1="806" y1="350" x2="1162" y2="350" stroke="#dbe6f0"/>
+  <text class="kvk" x="806" y="374">product code</text><text class="kv" x="952" y="374">165  (tilt 0.5°)</text>
+  <text class="kv"  x="806" y="398" fill="#145a32">label “what” (TTAAII) = SDUS8</text>
+  <text class="kv"  x="806" y="420" fill="#145a32">label “who”  (CCCC)   = from the radar site</text>
 
-  <!-- FK edge source.id -> entry.source_id -->
-  <path d="M470,360 C540,360 540,356 606,356" fill="none" stroke="#b7950b" stroke-width="1.6" marker-end="url(#fk)"/>
-  <rect x="492" y="330" width="92" height="18" rx="4" fill="#fef9e7"/>
-  <text x="538" y="343" text-anchor="middle" class="lbl" fill="#9a7d0a">1 source : N entries</text>
+  <!-- folder -> cards arrow -->
+  <path d="M600 232 C680 232 680 212 756 212" fill="none" stroke="#8a94a6" stroke-width="1.8" marker-end="url(#arr)"/>
+  <rect x="612" y="196" width="150" height="20" rx="5" fill="#fef9e7"/>
+  <text x="687" y="210" text-anchor="middle" class="pill" fill="#9a7d0a">one folder → many cards</text>
 
-  <!-- JSON note -->
-  <text class="note" x="610" y="536" fill="#8a94a6">Entries stay JSON (not shredded into columns): the three kinds have different fields and matching</text>
-  <text class="note" x="610" y="554" fill="#8a94a6">runs in Python against the whole dict, so a parser can add a field without a schema migration.</text>
+  <text class="txt" x="760" y="470" fill="#8a94a6">A card stores exactly what the document said — the product's description and its two label codes.</text>
+  <text class="txt" x="760" y="490" fill="#8a94a6">Different product types fill in different fields, so each card is kept as free-form text, not rigid columns.</text>
 
-  <!-- ===================== how the resolver reads it ===================== -->
-  <text class="hdr" x="40" y="600">HOW THE RESOLVER LOADS IT</text>
+  <!-- ============ HOW A LOOKUP WORKS ============ -->
+  <text class="tag" x="60" y="560">HOW A LOOKUP WORKS</text>
   <g filter="url(#soft)">
-    <rect x="40" y="616" width="1360" height="120" rx="10" fill="#fbfcfe" stroke="#dde3ec"/>
+    <rect x="60" y="580" width="1360" height="150" rx="12" fill="#fbfcfe" stroke="#dde3ec"/>
   </g>
-  <text class="col" x="60" y="648" font-size="13" fill="#1b2733">registry_db.read_db(path)</text>
-  <text class="note" x="320" y="648">→ (manifest, entries) pairs — exactly what a LoadedSource held before.</text>
 
-  <text class="col" x="60" y="680" font-size="13" fill="#1b2733">Registry.__init__</text>
-  <text class="note" x="320" y="680">→ builds the in-memory lookup maps, unchanged from the file-based layout:</text>
-  <text class="note" x="320" y="700" fill="#4a235a">by_product · by_grid · grid_specs · radar_by_code · abbrev_param · code_tables · valid_cccc · analysis_headers</text>
-  <text class="note" x="60" y="722" fill="#8a94a6">sources.json stays the only hand-written, hash-pinned input; the database is just a container for build output.</text>
+  <!-- step boxes -->
+  <g filter="url(#soft)"><rect x="92" y="612" width="300" height="86" rx="9" fill="#eef2f7" stroke="#8a94a6"/></g>
+  <text class="lab" x="110" y="640" fill="#1b2733" font-size="14">1. Your dataset</text>
+  <text class="txt" x="110" y="662">“I’m MultiSensor_QPE_24H_Pass2,</text>
+  <text class="txt" x="110" y="680">over CONUS, from Sept 30 18:00.”</text>
+
+  <path d="M400 655 h70" fill="none" stroke="#8a94a6" stroke-width="1.8" marker-end="url(#arr)"/>
+
+  <g filter="url(#soft)"><rect x="486" y="612" width="320" height="86" rx="9" fill="#f4ecf7" stroke="#7d3c98"/></g>
+  <text class="lab" x="504" y="640" fill="#4a235a" font-size="14">2. Find the matching card</text>
+  <text class="txt" x="504" y="662" fill="#6a4a7a">look through the cards for the one whose</text>
+  <text class="txt" x="504" y="680" fill="#6a4a7a">product + region match the dataset</text>
+
+  <path d="M814 655 h70" fill="none" stroke="#8a94a6" stroke-width="1.8" marker-end="url(#arr)"/>
+
+  <g filter="url(#soft)"><rect x="900" y="612" width="480" height="86" rx="9" fill="#d5f5e3" stroke="#1e8449" stroke-width="1.6"/></g>
+  <text class="lab" x="920" y="640" fill="#145a32" font-size="14">3. Read the label off the card, add the time</text>
+  <text class="kv"  x="920" y="668" fill="#145a32" font-size="15">YAUP06 KWNR 301800</text>
+  <text class="pill" x="1150" y="668" fill="#45745a">↑ codes from card, time from data</text>
+
+  <text class="sub" x="60" y="784">If no card matches, the tool says so and explains why — it never makes a label up. That “no label” answer is</text>
+  <text class="sub" x="60" y="806">often correct: plenty of products are simply never broadcast, so they genuinely have no routing label.</text>
 </svg>

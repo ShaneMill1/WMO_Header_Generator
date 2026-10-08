@@ -1,14 +1,26 @@
 # cirrus_wmo — WMO abbreviated heading resolver
 
-Given a weather product stored in an icechunk / zarr archive, this finds the
-**WMO abbreviated heading** (the "COMMS header") that the product is officially
-disseminated under — or tells you, with a reason, that none exists.
-
-It works for GRIB2 model/analysis products (GFS, GEFS, AQM, HRRR, MRMS,
-RTMA/URMA) and NEXRAD radar (Level II and Level III), across both the GRIB2-array
-and CF icechunk encodings.
-
 Repository: https://github.com/ShaneMill1/WMO_Header_Generator
+
+## What this does, in one minute
+
+Weather data (model forecasts, radar, etc.) gets shipped around the world over a
+shared network. Every file that travels on that network wears a short label on
+the front — the **WMO abbreviated heading** — so the routing computers know what
+it is and where to send it. It looks like this:
+
+```
+YAUP06 KWNR 301800
+```
+
+That label isn't random, and it isn't something you can calculate from the data.
+A person decided, once, "this product gets this label," and wrote it down in an
+official document. This tool answers a simple question:
+
+> I have a weather dataset sitting in storage. **What label would it travel
+> under** — and if it doesn't get one, why not?
+
+You point it at a dataset; it prints the label (or a plain reason there is none):
 
 ```
 $ python read_icechunk.py
@@ -19,27 +31,73 @@ WMO: YAUP06 KWNR 301800
      authority   : nws-mrms-sbn -> MRMS-v12.2-supp
 ```
 
+It handles the common U.S. weather products — model output (GFS, GEFS, AQM, HRRR,
+MRMS, RTMA/URMA) and NEXRAD radar.
+
+## Decoding the label
+
+The heading is four chunks. You don't need to memorize this, but it helps to
+know what the letters mean when you see them below:
+
+```
+YAUP06   KWNR   301800   (BBB)
+  │       │       │        └─ optional: marks a correction/amendment
+  │       │       └─ WHEN:  day 30, 18:00 UTC   (this is the only part from the data)
+  │       └─ WHO:   the office that put it out   (KWNR = a national center)
+  └─ WHAT: the product + region, as a code       (YAUP06 ≈ a specific MRMS product over CONUS)
+```
+
+Jargon you'll meet, defined once:
+
+| Term | Plain meaning |
+| --- | --- |
+| **WMO heading** | the routing label above (`TTAAII CCCC YYGGgg`) |
+| **TTAAII** | the "what + where" code (first chunk, e.g. `YAUP06`) |
+| **CCCC** | the "who sent it" code (e.g. `KWNR`, `KWBC`) |
+| **YYGGgg** | day/hour/minute, computed from the data's timestamp |
+| **disseminated** | actually broadcast on the network (if it isn't, it has no label) |
+| **GRIB2** | the standard file format for gridded model/analysis data |
+| **NEXRAD** | the national weather-radar network |
+| **icechunk / zarr** | the storage format the datasets live in |
+| **registry** | this tool's local database of "which product → which label" |
+
 ## How it works
 
 ![architecture](docs/architecture.png)
 
-Four ideas, left to right:
+**Reading the diagram, left to right:** a dataset comes in (1); the tool reads
+its metadata to figure out *what product it is* (2); it looks that product up in
+a built-in library of official documents that record who assigned which label
+(3); it tries to match (4); and it either prints the label or says, specifically,
+why there is none (5). The one-line version:
 
-1. **Input** — an icechunk / zarr store.
-2. **Identify** — read the store's metadata to work out what the product is.
-   GRIB2 and radar carry different metadata, so each has its own reader.
-3. **Authoritative sources** — a registry built from pinned, hash-verified
-   NWS / NCEP / WMO documents that record who assigned which header.
-4. **Resolve** — match the product against those sources. Either it traces to a
-   record (you get a header) or it does not (you get a clear reason).
+1. **Input** — a dataset in storage (an icechunk / zarr "store").
+2. **Identify** — read the dataset's metadata to work out what the product is.
+   Model data and radar describe themselves differently, so each gets its own
+   reader.
+3. **Authoritative sources** — a local library ("the registry") built from
+   official NWS / NCEP / WMO documents that say which product gets which label.
+   Each document is pinned to an exact version and checksum, so the answers are
+   traceable, not guessed.
+4. **Resolve** — match the product against those sources.
+5. **Result** — either a label (it traced to a record) or an "unresolved" with a
+   clear reason.
 
 ## How the mapping works
 
-Step 4 is the heart of it: the metadata and the authoritative source don't share
-a single common key, so each source family is matched on the fields that source
-actually keys on. In every case the heading's `TTAAII` and `CCCC` come from the
-source; only `YYGGgg` (day/hour/minute) is read from the data — the one exception
-is radar, where `CCCC` is the radar site, also read from the data.
+This is the part that trips people up, so here's the mental model: **it's a
+lookup, not a calculation.** The tool never *builds* a label out of the data. It
+figures out what the product is, finds the one row in an official table that
+already lists that product, and copies the label off that row. The only piece it
+computes is the timestamp (`YYGGgg`), straight from the data's own clock.
+
+The catch is that different products are identified by different things — a radar
+product by its site and tilt, a model field by its grid and variable — so there's
+no single "key" that works for all of them. Each kind of source is matched on the
+fields that source actually uses. The table below is the full breakdown; the one
+rule that holds everywhere is: **`TTAAII` and `CCCC` come from the official
+source, `YYGGgg` comes from the data** (radar is the lone twist — its `CCCC` is
+the radar site, which is also read from the data).
 
 | Source | Fields read from the store | Matched against | Produces the header by |
 | --- | --- | --- | --- |
@@ -72,14 +130,18 @@ Two details worth calling out:
 
 ### Worked example (MRMS)
 
-It helps to think of resolving as a **join**: the store metadata is one row, the
-authoritative source is a table of products someone already assigned headers to,
-and we join on whatever key identifies the product. The matching row *contains*
-the header — we read it out, we don't compute it.
+Picture two tables side by side. On the left, the one dataset you're holding. On
+the right, a long list of products someone already assigned labels to. You find
+the row on the right that describes your dataset, and read the label off it.
+That's the whole trick — the matching row *already contains* the answer.
 
 ![how a header is resolved](docs/resolve_example.png)
 
-Concretely, for the MRMS example at the top:
+**Reading the diagram:** your dataset's metadata (left) is matched to one row in
+the MRMS source table (middle); the label fields on that row — highlighted in
+green — are copied straight into the final heading (right). Only the timestamp is
+filled in from the data. Here it is step by step, for the MRMS example at the
+top of this README:
 
 1. **Read the identity from the store.** The variable's metadata gives
    `short_name = "MultiSensor_QPE_24H_Pass2"` and `time = 2025-09-30T18:00`; the
@@ -356,9 +418,28 @@ document, cited per entry in the database.
 
 ### Registry database
 
-`build_registry.py` writes `registry/registry.db`. It has three tables — `meta`
-(build provenance), `source` (one row per source; the per-source manifest as
-JSON), and `entry` (one row per record; the record as JSON) — and the resolver
-loads it back into the same in-memory lookup maps it always used. See the schema:
+The "registry" is just one SQLite file, `registry/registry.db` — the local
+library of official product-to-label mappings the tool looks things up in. You
+build it once (or let the tool build it on first run) and then every lookup is
+offline.
 
 ![registry schema](docs/registry_schema.png)
+
+**Reading the diagram — picture a filing cabinet:**
+
+- **Folders** — one per official document the labels came from (the MRMS notice,
+  the GFS config, the radar table, …). A folder just records *where* a set of
+  labels came from, plus any reference tables that document needs.
+- **Cards** — inside each folder, one card per product-to-label assignment. A
+  card holds what the document said: the product's description and its two label
+  codes (the "what" `TTAAII` and the "who" `CCCC`). One folder holds many cards.
+- **A lookup** (bottom strip) — the tool takes your dataset, finds the one card
+  whose product matches, reads the two codes off it, and stamps on the time from
+  the data. If no card matches, it says so and explains why — it never invents a
+  label.
+
+Under the hood those "folders" and "cards" are two SQLite tables (`source` and
+`entry`, plus a tiny `meta` table of build info). Each card is stored as a
+free-form text blob rather than fixed columns, because the three product types —
+notice, model, radar — fill in different fields, and a new field should never
+force a database change.
