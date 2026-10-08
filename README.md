@@ -44,6 +44,56 @@ YAUP06   KWNR   301800   (BBB)
 | **icechunk / zarr** | storage format the datasets live in |
 | **registry** | this tool's local database of product → heading mappings |
 
+## Installation
+
+Python 3.13 is recommended (the project is developed and tested against it).
+Create an environment and install the runtime dependencies:
+
+```bash
+# venv + pip
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# or conda / mamba
+mamba create -n cirrus_wmo python=3.13
+mamba activate cirrus_wmo
+pip install -r requirements.txt
+```
+
+That installs `icechunk`, `xarray`, `zarr`, `numpy`, and `pypdf` at the versions
+the project is tested against. To run the test suite as well, add the dev
+dependencies:
+
+```bash
+pip install -r requirements-dev.txt   # adds pytest
+```
+
+`grib2io` is deliberately not a dependency: `build_registry.py` downloads
+grib2io's source tarball from a pinned URL and parses its parameter tables
+directly, so there is nothing extra to install for the registry build. Reading
+S3 stores needs AWS credentials in the environment (`icechunk` handles the S3
+access); local stores via `--local` need none.
+
+## Usage
+
+```bash
+# The registry builds itself on first use.
+python read_icechunk.py                          # default MRMS store (S3)
+python read_icechunk.py --prefix path/to/store.ic --explain
+python read_icechunk.py --local /path/to/radar_store   # local radar store
+python read_icechunk.py --local /path/to/hrrr.icechunk # CF-encoded GRIB2 (HRRR)
+#   model source is inferred from the path; override with --source <id>
+
+# Rebuild the registry explicitly (e.g. after editing sources.json).
+python build_registry.py
+python build_registry.py --source ncep-hrrr-awips
+
+python -m pytest tests/ -q                       # hermetic tests, no network
+```
+
+The default MRMS store is on S3 and needs AWS credentials in the environment;
+local stores (e.g. radar on `/efs`) use `--local` and need none.
+
 ## Architecture
 
 ![architecture](docs/architecture.png)
@@ -309,56 +359,6 @@ Three result types: an **exact** heading (authoritative for that data), a
 grid, reported with a caveat), or **unresolved** with a reason. A ❌ reflects a
 product with no WMO heading to find, not a gap in coverage.
 
-## Installation
-
-Python 3.13 is recommended (the project is developed and tested against it).
-Create an environment and install the runtime dependencies:
-
-```bash
-# venv + pip
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-# or conda / mamba
-mamba create -n cirrus_wmo python=3.13
-mamba activate cirrus_wmo
-pip install -r requirements.txt
-```
-
-That installs `icechunk`, `xarray`, `zarr`, `numpy`, and `pypdf` at the versions
-the project is tested against. To run the test suite as well, add the dev
-dependencies:
-
-```bash
-pip install -r requirements-dev.txt   # adds pytest
-```
-
-`grib2io` is deliberately not a dependency: `build_registry.py` downloads
-grib2io's source tarball from a pinned URL and parses its parameter tables
-directly, so there is nothing extra to install for the registry build. Reading
-S3 stores needs AWS credentials in the environment (`icechunk` handles the S3
-access); local stores via `--local` need none.
-
-## Usage
-
-```bash
-# The registry builds itself on first use.
-python read_icechunk.py                          # default MRMS store (S3)
-python read_icechunk.py --prefix path/to/store.ic --explain
-python read_icechunk.py --local /path/to/radar_store   # local radar store
-python read_icechunk.py --local /path/to/hrrr.icechunk # CF-encoded GRIB2 (HRRR)
-#   model source is inferred from the path; override with --source <id>
-
-# Rebuild the registry explicitly (e.g. after editing sources.json).
-python build_registry.py
-python build_registry.py --source ncep-hrrr-awips
-
-python -m pytest tests/ -q                       # hermetic tests, no network
-```
-
-The default MRMS store is on S3 and needs AWS credentials in the environment;
-local stores (e.g. radar on `/efs`) use `--local` and need none.
-
 ## Sources
 
 The registry is built from pinned, hash-verified public documents, each covering
@@ -377,6 +377,34 @@ Two layers are kept deliberately separate: **identity** (what a field is) and
 **heading assignment** (which heading, if any, NWS gives it). grib2io answers the
 first; only the parm files and notices answer the second. No GRIB library assigns
 headings; that is a dissemination decision, not a property of the data.
+
+## Related work, and why this exists
+
+The forward direction, stamping a WMO heading onto a product at dissemination
+time, is already handled by NCEP's operational tooling. `tocgrib2` (part of
+NCEPLIBS `grib_util`, now folded into
+[NCEPLIBS-g2](https://github.com/NOAA-EMC/NCEPLIBS-g2)) reads the parm files this
+project also pins and writes the heading onto each outgoing GRIB2 message; the
+per-model header tables are published on the
+[NCO server](https://www.nco.ncep.noaa.gov/pmb/changes/).
+Several libraries read GRIB2 identity, including
+[grib2io](https://github.com/NOAA-MDL/grib2io) (whose parameter tables this
+project uses) and wgrib2. And in the other direction,
+[GTStoWIS2](https://github.com/wmo-im/GTStoWIS2) (now continued as
+[wis2-topic-hierarchy](https://github.com/wmo-im/wis2-topic-hierarchy)) takes a
+heading you already have and maps it to a WIS2 topic.
+
+What none of these do is the reverse lookup this tool performs: given an archived
+dataset whose heading was never applied or has been stripped (as in an
+icechunk / zarr archive), recover the heading by matching the data's identity
+back to the authoritative allocation. The operational path assumes the header is
+attached at dissemination and travels with the product, so there is normally no
+need to reconstruct it later; this project exists because the archives it reads
+do not carry one. It does not invent header assignment, it recovers an assignment
+NCEP / NWS already made, with provenance, and it extends the same approach to
+radar and CF-encoded stores that `tocgrib2` does not cover.
+
+Content was rephrased for compliance with licensing restrictions.
 
 ## Project layout
 
