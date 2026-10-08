@@ -1,12 +1,11 @@
-# cirrus_wmo — WMO abbreviated heading resolver
-# cirrus_wmo — WMO abbreviated heading resolver
+# cirrus_wmo: WMO abbreviated heading resolver
 
 Repository: https://github.com/ShaneMill1/WMO_Header_Generator
 
 ## Overview
 
 Given a weather dataset in storage, `cirrus_wmo` reports the WMO abbreviated
-heading it would be disseminated under — or, if it would not be disseminated, the
+heading it would be disseminated under, or, if it would not be disseminated, the
 specific reason why. The heading cannot be computed from the data; it is a human
 allocation recorded in an authoritative document. The tool resolves it by
 matching the dataset's identity against those documents.
@@ -28,7 +27,7 @@ NEXRAD radar.
 ```
 YAUP06   KWNR   301800   (BBB)
   │       │       │        └─ optional correction/amendment indicator
-  │       │       └─ day 30, 18:00 UTC — the only field derived from the data
+  │       │       └─ day 30, 18:00 UTC (the only field derived from the data)
   │       └─ originating center (KWNR)
   └─ product + region code (YAUP06)
 ```
@@ -49,14 +48,14 @@ YAUP06   KWNR   301800   (BBB)
 
 ![architecture](docs/architecture.png)
 
-1. **Input** — a dataset in storage (an icechunk / zarr store).
-2. **Identify** — read the dataset's metadata into a product identity. Model data
+1. **Input**: a dataset in storage (an icechunk / zarr store).
+2. **Identify**: read the dataset's metadata into a product identity. Model data
    and radar describe themselves differently, so each has its own reader.
-3. **Registry** — a local SQLite database (`registry.db`) built from pinned NWS /
+3. **Registry**: a local SQLite database (`registry.db`) built from pinned NWS /
    NCEP / WMO documents that record which product gets which heading. Each
    document is pinned to an exact version and checksum (see "Registry database").
-4. **Resolve** — match the identity against those sources.
-5. **Result** — a heading traced to a record, or an `Unresolved` with a reason.
+4. **Resolve**: match the identity against those sources.
+5. **Result**: a heading traced to a record, or an `Unresolved` with a reason.
 
 ## Mapping
 
@@ -64,11 +63,11 @@ Resolution is a lookup, not a computation. The tool identifies the product,
 finds the record in an authoritative table that lists it, and reads the heading
 off that record. Only `YYGGgg` is computed, from the data's timestamp.
 
-Different products are identified by different attributes — radar by site and
-tilt, a model field by grid and variable — so there is no single lookup key. Each
+Different products are identified by different attributes (radar by site and
+tilt, a model field by grid and variable), so there is no single lookup key. Each
 source is matched on the fields it actually uses. The invariant across all of
 them: **`TTAAII` and `CCCC` come from the source, `YYGGgg` comes from the data.**
-Radar is the one exception — its `CCCC` is the radar site, read from the data.
+Radar is the one exception; its `CCCC` is the radar site, read from the data.
 
 | Source | Fields read from the store | Matched against | Produces the header by |
 | --- | --- | --- | --- |
@@ -87,14 +86,14 @@ Two details worth calling out:
   ambiguous rather than guessed (this is why some GFS/GEFS fields like `CFRZR`
   come back unresolved).
 - **Exact vs parameter-level (GRIB2).** If the store's grid *is* a disseminated
-  grid, the match is **exact** — the header is authoritative for that data. If the
+  grid, the match is **exact**: the header is authoritative for that data. If the
   store is on a native, non-disseminated grid (e.g. GFS at 0.25°, HRRR at 3 km),
   the resolver reports the header NWS assigns to the *same field on its AWIPS
   grid*, flagged as **parameter-level** with a caveat, never as if it were the
   real bulletin.
 - **Two GRIB2 metadata encodings.** The same GRIB2 identity can be stored two
   ways. Some archives keep the raw GRIB2 Section 3 array (`grib_section3`) and
-  PDT prose; others (e.g. the CIRRUS HRRR stores) keep it as CF metadata — a
+  PDT prose; others (e.g. the CIRRUS HRRR stores) keep it as CF metadata: a
   `spatial_ref` grid-mapping, projected `x`/`y`, and scaled-value level
   coordinates. The resolver reads either; the join to the authoritative source is
   identical once the grid, parameter, level, and forecast hour are in hand.
@@ -104,7 +103,7 @@ Two details worth calling out:
 ![how a header is resolved](docs/resolve_example.png)
 
 The dataset's metadata (left) is matched to one row in the MRMS source table
-(middle); the heading fields on that row — highlighted — are copied into the
+(middle); the heading fields on that row (highlighted) are copied into the
 final heading (right), with only the timestamp filled in from the data. Step by
 step, for the MRMS example at the top of this README:
 
@@ -148,7 +147,7 @@ made once when the product is added to dissemination and recorded in an
 operational config or public notice. The `ii` is a two-digit designator assigned
 from the WMO/national-practice tables; it is not derivable from the data.
 
-The operational tool (`tocgrib2`) does not compute headings either — it looks
+The operational tool (`tocgrib2`) does not compute headings either; it looks
 them up in pre-written records and copies the string out, stamping only the
 `YYGGgg` day/hour from the data. This project runs that lookup in reverse: given
 archived metadata, find the allocation already made. Where none exists, there is
@@ -160,14 +159,14 @@ A heading is emitted only when every field traces to an authoritative record;
 otherwise the result is an `Unresolved` stating what was missing. The resolver
 does not default a domain or originating center, invent a timestamp, or choose
 between candidates the evidence cannot distinguish. An unresolved result is often
-the correct answer — see the Demo for which products have a heading and which do
+the correct answer; see the Demo for which products have a heading and which do
 not.
 
 ## Demo
 
 All output below is real. Commands use the project's Python environment.
 
-### MRMS (GRIB2) — resolves
+### MRMS (GRIB2): resolves
 
 ```
 $ python read_icechunk.py --limit 5
@@ -183,7 +182,7 @@ Resolved 1 heading(s); 0 product(s) unresolved.
 
 Add `--explain` to see the matching evidence and the verbatim source text.
 
-### RTMA / URMA (GRIB2 analysis) — resolves
+### RTMA / URMA (GRIB2 analysis): resolves
 
 Analysis-grid fields that the NWS TINs assign a header to resolve; fields the
 TINs don't cover (cloud ceiling, specific humidity, …) correctly do not.
@@ -204,11 +203,11 @@ Unresolved products: ['CEIL', 'SPFH', 'TCDC']
 
 (URMA behaves the same, e.g. `LTQA98 KWBR` for temperature.)
 
-### GFS at native 0.25° (GRIB2) — parameter-level, with a caveat
+### GFS at native 0.25° (GRIB2): parameter-level, with a caveat
 
 The archived GFS is on its native global grid, which is *not* a disseminated
 grid. The resolver won't claim a header for this exact grid, but it can report
-the header NWS assigns to the same field on its AWIPS grid — flagged as a
+the header NWS assigns to the same field on its AWIPS grid, flagged as a
 parameter-level match, not an exact one:
 
 ```
@@ -223,7 +222,7 @@ WMO: YHPY99 KWBC 110000
      authority   : ncep-gfs-awips -> grib2_awpgfs240.003:1
 ```
 
-### HRRR, CF-encoded (GRIB2) — parameter-level, with a caveat
+### HRRR, CF-encoded (GRIB2): parameter-level, with a caveat
 
 A CIRRUS HRRR store carries its GRIB2 identity as CF metadata (no
 `grib_section3`). The store type and model are detected automatically; the grid
@@ -250,7 +249,7 @@ The forecast hour drives the `A2` character of the heading, so the same field
 across lead times produces `YHCA…`, `YHCB…`, `YHCC…` (f00, f01, f02, …), each
 tracing to the matching per-hour parm file.
 
-### NEXRAD Level III, disseminated — resolves
+### NEXRAD Level III, disseminated: resolves
 
 A radar store is detected automatically; local stores use `--local`.
 
@@ -272,7 +271,7 @@ Resolved 1 heading(s); 0 product(s) unresolved.
 Matched by `(product code 165, elevation 0.5°)` → mnemonic `N0H` → `SDUS8`;
 site `KTLX` becomes the CCCC; the time comes from the scan time.
 
-### NEXRAD Level III, not disseminated — unresolved
+### NEXRAD Level III, not disseminated: unresolved
 
 Product 167 (Super-Res Digital Correlation Coefficient) is a real product but is
 not broadcast on the SBN, so it has no heading:
@@ -286,7 +285,7 @@ UNRESOLVED: HC  (group /KTLX/167_HC)
 Resolved 0 heading(s); 1 product(s) unresolved.
 ```
 
-### NEXRAD Level II — unresolved
+### NEXRAD Level II: unresolved
 
 Level II base data moves as whole-volume files (LDM/FTP), not as headered
 bulletins, so each sweep resolves to a precise reason:
@@ -304,11 +303,11 @@ Resolved 0 heading(s); 4 product(s) unresolved.
 
 | Product | Result | Why |
 | --- | --- | --- |
-| MRMS SBN product (e.g. 24-hour QPE) | ✅ exact — `YAUP06 KWNR 301800` | assigned a header in the MRMS SBN notices |
-| RTMA / URMA analysis field in the TINs | ✅ exact — `LTIA98 KWBR 312300` | header pieces published in the NWS TINs |
-| NEXRAD Level III SBN product (e.g. 165 DHC) | ✅ exact — `SDUS8 KTLX 081617` | listed in the NOAAPort radar table |
-| GFS / GEFS at native 0.25° resolution | ⚠️ parameter-level — `YHPY99 KWBC 110000` | the native grid isn't disseminated, so the header for the same field on the AWIPS grid is reported with a caveat (only where that field is headered; otherwise unresolved) |
-| HRRR at native 3 km (CF-encoded) | ⚠️ parameter-level — `YHCA73 KWBY 160700` | same as GFS: native grid isn't the disseminated 2.5 km grid, so HRRR's own `KWBY` header is reported with a caveat |
+| MRMS SBN product (e.g. 24-hour QPE) | ✅ exact, `YAUP06 KWNR 301800` | assigned a header in the MRMS SBN notices |
+| RTMA / URMA analysis field in the TINs | ✅ exact, `LTIA98 KWBR 312300` | header pieces published in the NWS TINs |
+| NEXRAD Level III SBN product (e.g. 165 DHC) | ✅ exact, `SDUS8 KTLX 081617` | listed in the NOAAPort radar table |
+| GFS / GEFS at native 0.25° resolution | ⚠️ parameter-level, `YHPY99 KWBC 110000` | the native grid isn't disseminated, so the header for the same field on the AWIPS grid is reported with a caveat (only where that field is headered; otherwise unresolved) |
+| HRRR at native 3 km (CF-encoded) | ⚠️ parameter-level, `YHCA73 KWBY 160700` | same as GFS: native grid isn't the disseminated 2.5 km grid, so HRRR's own `KWBY` header is reported with a caveat |
 | RTMA / URMA field not in the TINs (CEIL, SPFH, TCDC) | ❌ | no NWS record assigns it a header |
 | NEXRAD Level III, not on the SBN (e.g. 167, 168) | ❌ | real product, but never broadcast under a heading |
 | NEXRAD Level II base data | ❌ | distributed as whole-volume files (LDM/FTP), never headered |
@@ -349,13 +348,13 @@ a different piece of the mapping:
 | **MRMS SBN notices** | NWS bulletins assigning headers to MRMS products by name |
 | **RTMA / URMA TINs** | NWS Technical Implementation Notices giving the header pieces for the analysis grids |
 | **NOAAPort radar table** | NWS list of which NEXRAD Level III products are broadcast on the SBN and under which `SDUS` heading |
-| **WMO / GRIB2 code tables + grib2io** | reference tables for what a field *is* (parameter, level, process) — not header assignment |
+| **WMO / GRIB2 code tables + grib2io** | reference tables for what a field *is* (parameter, level, process), not header assignment |
 | **XR-09 office directory** | official list of valid NWS office identifiers (CCCC), used to sanity-check the originating office |
 
 Two layers are kept deliberately separate: **identity** (what a field is) and
 **heading assignment** (which heading, if any, NWS gives it). grib2io answers the
 first; only the parm files and notices answer the second. No GRIB library assigns
-headings — that is a dissemination decision, not a property of the data.
+headings; that is a dissemination decision, not a property of the data.
 
 ## Project layout
 
@@ -367,14 +366,14 @@ headings — that is a dissemination decision, not a property of the data.
 | `build_registry.py` | fetch, verify, and parse the pinned sources into the registry |
 | `registry_db.py` | read/write the SQLite registry database |
 | `tocgrib2_parm.py` · `nws_notice.py` · `nexrad_radar.py` | parsers for each source format |
-| `registry/sources.json` | the pinned source manifest — the only hand-written data file |
+| `registry/sources.json` | the pinned source manifest; the only hand-written data file |
 | `tools/` | dev utilities: `inspect_icechunk.py`, `make_synthetic_l3.py` |
 | `docs/` | architecture diagram and a step-by-step demo |
 | `tests/` | hermetic tests (no network) |
 
 The registry itself (`registry/registry.db`, a SQLite file) is build output and
 is not committed; `read_icechunk.py` builds it on first run. `sources.json` is
-the audit trail — it pins every upstream document by tag and sha256, and the
+the audit trail: it pins every upstream document by tag and sha256, and the
 build refuses to proceed on a mismatch. Every source is a public NWS / NCEP / WMO
 document, cited per entry in the database.
 
@@ -388,13 +387,13 @@ thereafter is offline.
 
 Three tables:
 
-- **`source`** — one row per pinned document (MRMS notice, GFS config, radar
+- **`source`**: one row per pinned document (MRMS notice, GFS config, radar
   table, …), recording where a set of mappings came from and any reference tables
   that document needs.
-- **`entry`** — one row per product-to-heading assignment, belonging to a
+- **`entry`**: one row per product-to-heading assignment, belonging to a
   source. Holds the product description and its `TTAAII` / `CCCC` codes. A source
   has many entries.
-- **`meta`** — build metadata (versions, checksums).
+- **`meta`**: build metadata (versions, checksums).
 
 Each `entry` is stored as a JSON blob rather than fixed columns: the three
 product types (notice, model, radar) populate different fields, so a new field
