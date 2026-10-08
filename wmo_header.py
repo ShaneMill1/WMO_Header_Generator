@@ -204,10 +204,23 @@ class Registry:
         # A previously-unseen backfill abbreviation is recorded, not fatal:
         # matching still keys on the PDT's own category/number, so an extra
         # abbreviation cannot produce a wrong header, only a new lookup alias.
+        # The gap backfill builds a global short_name -> parameter alias. Some
+        # models encode the gap abbreviations with different GRIB2 numbers than
+        # GFS/GEFS do -- e.g. HRRR uses the standard WMO numbers for CFRZR/CRAIN/
+        # LFTX while GFS uses NCEP local-table 192+. Folding both into one alias
+        # would make those abbreviations ambiguous and lose the GFS coverage the
+        # gap list guarantees. Such models are excluded from the *global*
+        # backfill; they still resolve via grib2io (which covers their common
+        # fields) and, when resolution is scoped to the model (prefer_source),
+        # directly from that model's own parm records. Keep this a denylist so a
+        # newly added, non-conflicting source keeps contributing by default.
+        BACKFILL_EXCLUDED_SOURCES = {"ncep-hrrr-awips"}
         grib2io_loaded = bool(self.by_kind.get("grib2_param_table"))
         parm_ids: dict = {}
         for entries in self.by_grid.values():
             for e in entries:
+                if e.get("source_id") in BACKFILL_EXCLUDED_SOURCES:
+                    continue
                 abbrev = desc_abbrev(e["desc"])
                 cat = e["pdt"].get("parameterCategory")
                 num = e["pdt"].get("parameterNumber")
@@ -693,12 +706,52 @@ def _pdt_matches(want: dict, entry_pdt: dict) -> Optional[str]:
     return None
 
 
-def _resolve_parameter(short_name: str, registry: Registry):
+def _params_for_abbrev_in_source(abbrev: str, registry: Registry, source_id: str):
+    """The distinct (cat, num) a source's own parm records use for an abbrev.
+
+    When resolution is scoped to one model (``prefer_source``), the parameter
+    identity is taken from that model's own records rather than the global abbrev
+    map. This is what lets HRRR (standard GRIB2 numbers) and GFS (NCEP local-table
+    numbers) use the same abbreviation without colliding.
+    """
+    found = set()
+    for entries in registry.by_grid.values():
+        for e in entries:
+            if e.get("source_id") != source_id:
+                continue
+            if desc_abbrev(e["desc"]) != abbrev:
+                continue
+            cat = e["pdt"].get("parameterCategory")
+            num = e["pdt"].get("parameterNumber")
+            if cat is not None and num is not None:
+                found.add((cat, num))
+    return found
+
+
+def _resolve_parameter(short_name: str, registry: Registry,
+                       prefer_source: Optional[str] = None):
     """Resolve a short_name to (parameterCategory, parameterNumber) or an error.
 
     Returns (param_tuple, None) on success, or (None, Unresolved) on failure.
+    When ``prefer_source`` is given, the parameter identity comes from that
+    source's own parm records (so model-specific numbering does not clash).
     """
     abbrev = normalize_name(short_name)
+
+    if prefer_source is not None:
+        scoped = _params_for_abbrev_in_source(abbrev, registry, prefer_source)
+        if len(scoped) == 1:
+            return next(iter(scoped)), None
+        if len(scoped) > 1:
+            return None, Unresolved(
+                product=short_name,
+                reasons=[
+                    f"abbreviation maps to multiple GRIB2 parameters {sorted(scoped)} "
+                    f"within {prefer_source}, so the parameter identity is ambiguous"
+                ],
+            )
+        # Not found in the preferred source: fall through to the global map.
+
     if abbrev in registry.abbrev_ambiguous:
         return None, Unresolved(
             product=short_name,
@@ -765,6 +818,7 @@ def resolve_by_grib_identity(
     registry: Registry,
     bbb: Optional[str] = None,
     allow_parameter_fallback: bool = True,
+    prefer_source: Optional[str] = None,
 ) -> Union[WMOHeader, Unresolved]:
     """Resolve a heading from GRIB2 identity.
 
@@ -789,7 +843,7 @@ def resolve_by_grib_identity(
             reasons=["grid could not be determined (no usable grib_section3)"],
         )
 
-    param, err = _resolve_parameter(short_name, registry)
+    param, err = _resolve_parameter(short_name, registry, prefer_source=prefer_source)
     if err is not None:
         return err
 
@@ -841,7 +895,9 @@ def resolve_by_grib_identity(
             evidence={"dataset_grid": s3, "assigned_grids": sorted(registry.grid_specs)},
         )
 
-    picked, alts, err = _match_across_all_grids(short_name, want, pdtn, registry)
+    picked, alts, err = _match_across_all_grids(
+        short_name, want, pdtn, registry, prefer_source=prefer_source
+    )
     if err is not None:
         return err
 
@@ -862,7 +918,7 @@ def _unique_header(hits: list):
     return hits[0] if len(codes) == 1 else None
 
 
-def _match_across_all_grids(short_name, want, pdtn, registry):
+def _match_across_all_grids(short_name, want, pdtn, registry, prefer_source=None):
     """Find the parameter's header across every assigned grid, with tie-break.
 
     Returns (picked_record, alternatives, None) or (None, None, Unresolved).
@@ -870,9 +926,18 @@ def _match_across_all_grids(short_name, want, pdtn, registry):
     since the native archives here are global; otherwise, if more than one grid
     offers a header and none is clearly the global one, return Unresolved listing
     the candidates rather than guess.
+
+    When ``prefer_source`` is given, only that source's records are considered.
+    A header is a dissemination decision tied to a model: an HRRR archive's field
+    takes HRRR's (KWBY) assignment, not another model's assignment for the same
+    parameter. Without the scope, a parameter headered by several models would
+    collide, and the global-grid tie-break (meant for the GFS native-grid case)
+    would wrongly prefer GFS.
     """
     per_grid: dict = {}
     for grid, records in registry.by_grid.items():
+        if prefer_source is not None:
+            records = [e for e in records if e.get("source_id") == prefer_source]
         hits, _ = _match_records(records, want, pdtn)
         picked = _unique_header(hits)
         if picked is not None:

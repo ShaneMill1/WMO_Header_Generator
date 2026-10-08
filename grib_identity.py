@@ -158,6 +158,162 @@ def _find_level_coord(ds):
     return None, None
 
 
+# ---------------------------------------------------------------------------
+# CF-encoded GRIB2 (the "CIRRUS" dialect)
+# ---------------------------------------------------------------------------
+#
+# Some archives (e.g. the CIRRUS HRRR stores) do not keep the raw GRIB2 Section 3
+# array or the PDT prose. Instead they record the same facts in CF form:
+#
+#   grid           -> a CF grid-mapping on a ``spatial_ref`` coordinate, plus
+#                     projected ``x``/``y`` axes;
+#   level          -> ``scaled_value_of_first_fixed_surface`` /
+#                     ``scale_factor_of_first_fixed_surface`` coordinates;
+#   surface type   -> the group's ``code`` attribute (GRIB2 Table 4.5 value);
+#   parameter      -> the variable name (``short_name``);
+#   reference time -> an ``init_time`` coordinate;
+#   forecast hour  -> a ``lead_time`` (timedelta) coordinate.
+#
+# This is still GRIB2 identity, just a different serialization, so it feeds the
+# same resolver. It is handled by a separate extractor rather than by branching
+# the GRIB-array extractor, to keep each dialect's assumptions isolated.
+
+# GRIB2 grid definition template numbers, by CF grid_mapping_name.
+_CF_GRID_MAPPING_TO_GDTN = {
+    "latitude_longitude": 0,
+    "lambert_conformal_conic": 30,
+    "polar_stereographic": 20,
+    "mercator": 10,
+}
+
+
+def _find_spatial_ref(ds, root=None):
+    """Return the CF grid-mapping coordinate, from the group or the root.
+
+    The CIRRUS stores keep ``spatial_ref`` on the root group and the per-level
+    product groups inherit the x/y axes but not the grid-mapping, so both places
+    must be checked.
+    """
+    sr = ds.coords.get("spatial_ref")
+    if sr is None and root is not None:
+        sr = root.coords.get("spatial_ref")
+    return sr
+
+
+def is_cf_grib_dataset(ds, root=None) -> bool:
+    """True if a dataset looks like CF-encoded GRIB2 (vs the grib_section3 form).
+
+    Keyed on the markers the CIRRUS writer leaves and the GRIB-array writer does
+    not: a ``spatial_ref`` CF grid-mapping (on this group or the root) together
+    with the scaled-value level coordinates. Never guesses from variable names.
+    """
+    has_spatial_ref = _find_spatial_ref(ds, root) is not None
+    has_scaled_level = "scaled_value_of_first_fixed_surface" in ds.coords
+    return bool(has_spatial_ref and has_scaled_level)
+
+
+def _section3_from_cf(ds, root=None) -> Optional[dict]:
+    """Build a Section-3-equivalent grid dict from a CF grid-mapping.
+
+    Returns the comparable fields :func:`parse_section3` would produce, so the
+    resolver's grid logic can treat both encodings uniformly. The grid-mapping
+    name sets the template number; ``x``/``y`` set the dimensions.
+
+    Note: this is the *archive* grid. For the HRRR CIRRUS stores it is the native
+    3 km grid, which is not an assigned (headered) grid, so the resolver will
+    correctly fall through to a parameter-level match rather than an exact one.
+    """
+    sr = _find_spatial_ref(ds, root)
+    if sr is None:
+        return None
+    mapping = str(sr.attrs.get("grid_mapping_name", ""))
+    gdtn = _CF_GRID_MAPPING_TO_GDTN.get(mapping)
+    if gdtn is None:
+        return None
+
+    out: dict = {"gridDefinitionTemplateNumber": gdtn}
+    coords = ds.coords if "x" in ds.coords else (root.coords if root is not None else ds.coords)
+    try:
+        if "x" in coords and "y" in coords:
+            out["Ni"] = int(np.atleast_1d(coords["x"].values).size)
+            out["Nj"] = int(np.atleast_1d(coords["y"].values).size)
+    except (TypeError, ValueError):
+        pass
+    return out
+
+
+def _levels_from_cf(ds, ident: ProductIdentity) -> None:
+    """Fill the level axis from the scaled-value / scale-factor coordinates."""
+    if "scaled_value_of_first_fixed_surface" not in ds.coords:
+        ident.notes.append("no scaled_value_of_first_fixed_surface coordinate")
+        return
+    scaled = np.atleast_1d(ds.coords["scaled_value_of_first_fixed_surface"].values)
+    if "scale_factor_of_first_fixed_surface" in ds.coords:
+        factors = np.atleast_1d(ds.coords["scale_factor_of_first_fixed_surface"].values)
+    else:
+        factors = np.zeros_like(scaled)
+    levels = []
+    for sv, sf in zip(scaled, factors):
+        try:
+            levels.append(physical_level(int(sv), int(sf)))
+        except (TypeError, ValueError):
+            levels.append(None)
+    ident.levels = [lv for lv in levels if lv is not None]
+    ident.level_coord = "scaled_value_of_first_fixed_surface"
+
+
+def extract_identity_cf(da, ds, registry, group_attrs: Optional[dict] = None,
+                        root=None) -> ProductIdentity:
+    """Build GRIB2 identity from a CF-encoded (CIRRUS) dataset.
+
+    The counterpart of :func:`extract_identity` for stores that carry a CF
+    grid-mapping instead of ``grib_section3``. ``group_attrs`` is the enclosing
+    group's attributes, which carry the surface-type ``code`` (GRIB2 Table 4.5).
+    ``root`` is the root-group dataset, which holds the ``spatial_ref``
+    grid-mapping the product groups inherit implicitly.
+    """
+    a = da.attrs
+    ga = group_attrs or ds.attrs
+    ident = ProductIdentity(
+        short_name=a.get("short_name") or str(da.name),
+        section3=_section3_from_cf(ds, root),
+    )
+    # These stores are GRIB2 PDT template 4.0 (instantaneous) and 4.8 (interval).
+    # The template number is not recorded per-variable; leave it unset so the
+    # resolver matches on parameter/level/forecast rather than pinning a template
+    # we cannot prove. (A record's own pdtn still filters candidates.)
+    ident.pdtn = None
+
+    # Surface type (GRIB2 Table 4.5) from the group 'code' attribute.
+    code = ga.get("code")
+    if code is not None:
+        try:
+            ident.pdt["typeOfFirstFixedSurface"] = int(code)
+        except (TypeError, ValueError):
+            ident.notes.append(f"group code {code!r} is not an integer surface type")
+
+    _levels_from_cf(ds, ident)
+
+    # Reference time from init_time; forecast hour from lead_time.
+    if "init_time" in ds.coords:
+        ident.times = list(np.atleast_1d(ds.coords["init_time"].values))
+        try:
+            frt = np.atleast_1d(ds.coords["init_time"].values)[0]
+            ident.model_cycle_hour = int(frt.astype("datetime64[h]").astype("int64") % 24)
+        except (TypeError, ValueError, IndexError):
+            pass
+    if "lead_time" in ds.coords:
+        try:
+            leads = np.atleast_1d(ds.coords["lead_time"].values)
+            ident.lead_hours = [float(x / np.timedelta64(1, "h")) for x in leads]
+        except (TypeError, ValueError, ZeroDivisionError):
+            ident.notes.append("lead_time could not be converted to hours")
+
+    if ident.section3 is None:
+        ident.notes.append("could not derive a grid from the CF spatial_ref")
+    return ident
+
+
 def extract_identity(da, ds, registry) -> ProductIdentity:
     """Build GRIB2 identity evidence for one variable from its metadata.
 

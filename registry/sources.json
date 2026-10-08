@@ -157,6 +157,189 @@
       ]
     },
     {
+      "id": "ncep-hrrr-awips",
+      "kind": "tocgrib2_parm_url",
+      "authority": "NCEP HRRR operational dissemination configuration (the tocgrib2 parm files that stamp WMO headers on HRRR AWIPS/SBN products). CCCC=KWBY. Published as loose files per model version under the NCO nwprod server rather than a GitHub release.",
+      "version": "hrrr.v4.1.21",
+      "reference": "https://www.nco.ncep.noaa.gov/pmb/changes/hrrr_wmo_headers.php",
+      "tocgrib2_reference": {
+        "repo": "NOAA-EMC/NCEPLIBS-grib_util",
+        "path": "src/tocgrib2/tocgrib2.F90",
+        "namelist": "GRIBIDS",
+        "header_assembly": "CALL MAKWMO(WMOHEAD(1:6), dayofmonth, hourofday, WMOHEAD(8:11), WMOHDR)",
+        "pdt_wildcard_default": "PDT=-9999 is set before each namelist READ, so PDT slots a record does not supply are wildcards"
+      },
+      "grid_binding": {
+        "derived_from": "parm-file suffix '.184' = NCEP grid number",
+        "how": "HRRR AWIPS parm files are named grib2_awips_hrrrf<fhr>.184, where 184 is the NCEP grid number: CONUS 2.54 km Lambert Conformal (double-resolution NDFD grid, per ON-388 Table B). All records carry A1='C' (CONUS) per the HRRR WMO Headers page. The forecast hour is in the filename and in each record's PDT forecastTime.",
+        "parm_file_selection": [
+          "grib2_awips_hrrrf<fhr>.184  for fhr in 00..36"
+        ],
+        "cross_check": "All HRRR AWIPS parm records use A1='C' (CONUS), per the published HRRR WMO Headers page (CCCC=KWBY). Build fails if this correspondence breaks.",
+        "cross_check_reference": "https://www.nco.ncep.noaa.gov/pmb/changes/hrrr_wmo_headers.php",
+        "grids": [
+          {
+            "name": "hrrr_awips_184_2p5km_lambert",
+            "file_glob": "grib2_awips_hrrrf*.184",
+            "expect_a1": "C",
+            "a1_meaning_on388": "C - 2.5 km NDFD CONUS (Lambert Conformal) for CCCC=KWBY",
+            "section3_note": "Grid 184 (2.54 km Lambert) exact Section 3 dimensions are not asserted here: they were not verified against an authoritative inline spec, and the archived HRRR stores are on the native 3 km grid, which is not grid 184. With no section3 the exact-grid path never matches 184 (correct), and HRRR fields resolve at the parameter level, flagged with a caveat, exactly as intended.",
+            "section3": {}
+          }
+        ]
+      },
+      "parm_files": [
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf00.184",
+          "expected_sha256": "4cae1d09edb25a499b28d84af6dcf3bfac7f49e1b05338cdaad4fb86e1905f75"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf01.184",
+          "expected_sha256": "55f65968bf45e2736bd15cc77babfe3cecae7a19a081eae4b5ee10e2f9527c9d"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf02.184",
+          "expected_sha256": "d2397521951884ef8767d47562dba487f5e6136cc43ee085f2f3300ddc03f239"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf03.184",
+          "expected_sha256": "b40c683459732972d97134995e9f9650a89b73cbfe5b14208f6bde798c8c218d"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf04.184",
+          "expected_sha256": "ed23641951442efff166c3fedabbb4f2f4d676c13ca39b41543f55b92ab71ec8"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf05.184",
+          "expected_sha256": "0a80154461f280fa94c8c3e3cac4c7e96d72e9eec8485e1fe68f786ee32cb633"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf06.184",
+          "expected_sha256": "81f28486d2cb28d85403e112fef613c6d24d828858ef6f6ceedcde1395827a5b"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf07.184",
+          "expected_sha256": "eb6efcc18af09b8799ed6f4e1c3e18f53eb343624a3ad48d68cd76f47f2739ff"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf08.184",
+          "expected_sha256": "ef871e0d78eb94eb0ea4b860e24c7a55eef24fd267b75fa1d7299f2d1dbaedc4"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf09.184",
+          "expected_sha256": "4fd6f60863c5836f9b1ee1399f88373beaed36089bf16664ed832a2ee683177a"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf10.184",
+          "expected_sha256": "f4defd2ebbdc90de77b5c10492db60c49e4e4c8d74046f72ae3fbd296cf4ef7b"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf11.184",
+          "expected_sha256": "ed9e5f1c8d127c1eb462499086b67dd8e3d5966512253b839ec073970947ea18"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf12.184",
+          "expected_sha256": "18951eca815bd078ee5763b128428ca73226cccf1479675292b5f008a9b5f43f"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf13.184",
+          "expected_sha256": "44b0226a907c609294a6ef5c77b982e0016171e20ac2fc497d4641d38a02197e"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf14.184",
+          "expected_sha256": "e7a132b576454cacd8e5efb9bd8bf870c986c3fc3a2f8d74fd23bc799d42e676"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf15.184",
+          "expected_sha256": "6ca72737d9257d958590644fc8e785e122b88247b5b43ba15e0fdb34d0126856"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf16.184",
+          "expected_sha256": "19d19004dd91abe5769f7bcaecb36935dcf988fc2695e3b15c5b43f997fc6b92"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf17.184",
+          "expected_sha256": "cedd1cf4e5417217c7b46881912db88125b4a2aa29796663dd627e541a4bd2b7"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf18.184",
+          "expected_sha256": "8f0cb7cd3806d11d7ff9640f849fabc4568d97c1baa18c7aa7bcc0ade69d783d"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf19.184",
+          "expected_sha256": "0e3cda8767bd23bd059b0dec6a92f4ecf88f795b248b8c4a5ad50a48011229c2"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf20.184",
+          "expected_sha256": "b8e081fbb4270cbfe7471d822bf324bd05c98eea90b63b9079ceba37b8b035a1"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf21.184",
+          "expected_sha256": "5ebb42f7c6296ac61a8ea697049f17631262bd53eab1d9248c953d7df688d830"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf22.184",
+          "expected_sha256": "fd909dba0f9e32adcbcb4d0f55daf7969f2394349be1ec988780e02a80a1e42d"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf23.184",
+          "expected_sha256": "aaacc89ef60d53c75cf99677fb42f6839bd2e9aeee7b975a51d109e8043f84d3"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf24.184",
+          "expected_sha256": "1f6a6425a5ad2bc586da64c4f666cba7b0ea4ecba87b70a9dfac3d944991eed7"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf25.184",
+          "expected_sha256": "bb5a39eb25fc987c7661bb63f0089b410d05ef80edb6fae9b863bc72cf6ba7b4"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf26.184",
+          "expected_sha256": "6b6d4bfbcec7e9a02f07e0fe6db9303eb829d321395e862cf7a66f49edd3c40e"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf27.184",
+          "expected_sha256": "39d930317aee7ae3aef57bbfabd4ee2938d17f8d1eb4c3b0645a3d492a2dfdfb"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf28.184",
+          "expected_sha256": "698ef6d7346030bc2bdcffc5f90349a7a2b5040df1ef8f3ab23db1b8cecf801f"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf29.184",
+          "expected_sha256": "3cb04245b57d1d3d682e64788e47e7caeb5f0eb3310fd843587cd5bbee7b1910"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf30.184",
+          "expected_sha256": "edb9ada5386fe5d01edb7620070c338b86cd243753a6230345b8e5f70dd72719"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf31.184",
+          "expected_sha256": "77b4bb550f6154b2f2cfa804717b4d8618afaf9d8398dca766b2312f83083dca"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf32.184",
+          "expected_sha256": "3e4d1158ab26072968f9522b32d6329f4c5b524c562e27b5ee215150600b8bc6"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf33.184",
+          "expected_sha256": "120987766adab5eeeb78f3be2baae8ef60b8edf4f6371ffc4072a319fa2d6b7a"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf34.184",
+          "expected_sha256": "30765d71d4978922ff6d41c4a7fa1f8cc92e4dea0eef19730dcd27a46bcf6559"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf35.184",
+          "expected_sha256": "b16ee4d5f4e7111e6bed178f8404c6b72cdcfd64e003f3d828170a39972e41d6"
+        },
+        {
+          "url": "https://www.nco.ncep.noaa.gov/pmb/codes/nwprod/hrrr.v4.1.21/parm/conus/wmo/grib2_awips_hrrrf36.184",
+          "expected_sha256": "188c8535ff6f9f75ee3130833d1c0334acd3c52484dbacc2762bd69a8df0a7cd"
+        }
+      ]
+    },
+    {
       "id": "ncep-aqm-awips",
       "kind": "tocgrib2_parm",
       "authority": "NCEP Air Quality Model (AQM/CMAQ) dissemination configuration (NOAA-EMC/AQM-utils parm/wmo, the tocgrib2 config that stamps WMO headers on AQM AWIPS products). CCCC=KWBP.",
@@ -185,7 +368,11 @@
             "name": "aqm_conus_227_5km_lambert",
             "file_glob": "grib2_aqm*.227",
             "a1_meaning_on388": "227 - 5 km Lambert Conformal CONUS",
-            "section3": {"gridDefinitionTemplateNumber": 30, "Ni": 1473, "Nj": 1025}
+            "section3": {
+              "gridDefinitionTemplateNumber": 30,
+              "Ni": 1473,
+              "Nj": 1025
+            }
           }
         ],
         "unbound": [

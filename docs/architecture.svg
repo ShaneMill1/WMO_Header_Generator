@@ -39,8 +39,8 @@
   </g>
   <text class="nd" x="268" y="386" fill="#1b4f72" font-weight="700">GRIB2 metadata</text>
   <text class="nd mono" x="420" y="386" fill="#2874a6" font-style="italic" font-size="12">grib_identity</text>
-  <text class="srcdesc" x="268" y="407" fill="#4a6885">keyed on grid + parameter codes</text>
-  <text class="srcdesc" x="268" y="422" fill="#4a6885">(discipline / category / number) + level.</text>
+  <text class="srcdesc" x="268" y="407" fill="#4a6885">grid + parameter + level, from the raw</text>
+  <text class="srcdesc" x="268" y="422" fill="#4a6885">grib_section3 array or CF metadata.</text>
   <text class="nd" x="268" y="474" fill="#1b4f72" font-weight="700">NEXRAD metadata</text>
   <text class="nd mono" x="420" y="474" fill="#2874a6" font-style="italic" font-size="12">radar_identity</text>
   <text class="srcdesc" x="268" y="495" fill="#4a6885">no GRIB codes — keyed on product</text>
@@ -55,7 +55,7 @@
     <rect x="560"  y="76"  width="290" height="78" rx="9" fill="#f4ecf7" stroke="#7d3c98"/>
     <rect x="870"  y="76"  width="290" height="78" rx="9" fill="#f4ecf7" stroke="#7d3c98"/>
   </g>
-  <text class="srcname" x="575" y="104">tocgrib2 parm — GFS · GEFS · AQM</text>
+  <text class="srcname" x="575" y="104" font-size="12.5">tocgrib2 parm — GFS/GEFS/AQM/HRRR</text>
   <text class="srcdesc" x="575" y="123">NCEP's operational config that stamps the WMO</text>
   <text class="srcdesc" x="575" y="138">header onto each model GRIB2 product.</text>
   <text class="srcname" x="885" y="104">NOAAPort radar table (NEXRAD L3)</text>

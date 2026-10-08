@@ -114,7 +114,46 @@ The heading is matched by product name + domain against the MRMS SBN notices;
 
 ---
 
-## 3. NEXRAD Level III, disseminated — resolves to a header
+## 3. HRRR (CF-encoded GRIB2) — parameter-level, with a caveat
+
+HRRR CIRRUS stores carry their GRIB2 identity as CF metadata (a `spatial_ref`
+grid-mapping and scaled-value level coordinates) rather than a `grib_section3`
+array. The store type and model source are detected automatically. Because the
+archive is on HRRR's native 3 km grid — not the disseminated 2.5 km grid 184 —
+the result is a parameter-level match against HRRR's own `KWBY` headers:
+
+```
+$PY read_icechunk.py --local /efs/cirrus_test_data/HRRR-2026-09-21-sample-v2.icechunk --limit 1
+```
+
+```
+Opening /efs/cirrus_test_data/HRRR-2026-09-21-sample-v2.icechunk (branch=main)
+Store type: CF-encoded GRIB2 (model source: ncep-hrrr-awips)
+WMO: YHCA73 KWBY 160700
+     product     : HGT
+     description : HGT      Cloud base lvl
+     match       : parameter-level (see note)
+     note        : parameter-level header: NWS assigns this to the field on grid
+                   'hrrr_awips_184_2p5km_lambert'; the archive is the native file
+                   grid (1799x1059 gdt30), which is not disseminated under a WMO header
+     lead (h)    : 0.0
+     authority   : ncep-hrrr-awips -> grib2_awips_hrrrf00.184:56
+     source group: /cloud_ceiling/HGT
+```
+
+The grid comes from the CF `spatial_ref`; the parameter from `short_name`; the
+level from the scaled-value coordinates; and the forecast hour from `lead_time`
+(which drives the heading's `A2` character — `YHCA…`, `YHCB…`, `YHCC…` across
+f00, f01, f02, each tracing to the matching per-hour parm file). Resolution is
+scoped to `ncep-hrrr-awips`, so an HRRR field takes HRRR's `KWBY` assignment, not
+another model's header for the same parameter.
+
+To force a model source (when the path doesn't make it obvious), pass
+`--source ncep-hrrr-awips`.
+
+---
+
+## 4. NEXRAD Level III, disseminated — resolves to a header
 
 A disseminated L3 product (Digital Hydrometeor Classification, code 165) resolves
 to its `SDUS` heading. The store is local on `/efs`, so use `--local`:
@@ -147,7 +186,7 @@ site (`KTLX`); `YYGGgg` (081617) from `scan_time`.
 
 ---
 
-## 4. NEXRAD Level III, not disseminated — Unresolved
+## 5. NEXRAD Level III, not disseminated — Unresolved
 
 Product code 167 (Super Res Digital Correlation Coefficient) is defined in the
 WSR-88D ICD but is **not broadcast on the SBN**, so no WMO heading exists:
@@ -167,7 +206,7 @@ This is the correct answer, not a coverage gap: there is no heading to find.
 
 ---
 
-## 5. NEXRAD Level II — Unresolved
+## 6. NEXRAD Level II — Unresolved
 
 Level II base data (per-sweep moments) is distributed as whole-volume files via
 LDM/FTP, not under a WMO heading. Every sweep resolves to a precise Unresolved:
@@ -194,10 +233,10 @@ Resolved 0 heading(s); 4 product(s) unresolved.
 | Store | Type | Result |
 | --- | --- | --- |
 | MRMS `mrms_v12p2` | GRIB2 | `YAUP06 KWNR 301800` (resolved) |
+| HRRR (CF-encoded) | GRIB2, native 3 km grid | `YHCA73 KWBY 160700` (parameter-level) |
 | KTLX 165 (synthetic) | NEXRAD L3, disseminated | `SDUS8 KTLX 081617` (resolved) |
 | KTLX 167 | NEXRAD L3, not disseminated | Unresolved — no SBN heading |
 | KDFX | NEXRAD L2 | Unresolved — whole-volume, no heading |
 
-Three of four outcomes are "no header," and each is correct. The tool distinguishes
-*resolvable* products from products that genuinely have no WMO heading, and never
-fabricates one.
+The tool distinguishes *resolvable* products (exact or parameter-level) from
+products that genuinely have no WMO heading, and never fabricates one.

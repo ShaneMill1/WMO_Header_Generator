@@ -4,8 +4,9 @@ Given a weather product stored in an icechunk / zarr archive, this finds the
 **WMO abbreviated heading** (the "COMMS header") that the product is officially
 disseminated under — or tells you, with a reason, that none exists.
 
-It works for both GRIB2 model/analysis products (GFS, GEFS, AQM, MRMS, RTMA/URMA)
-and NEXRAD radar (Level II and Level III).
+It works for GRIB2 model/analysis products (GFS, GEFS, AQM, HRRR, MRMS,
+RTMA/URMA) and NEXRAD radar (Level II and Level III), across both the GRIB2-array
+and CF icechunk encodings.
 
 Repository: https://github.com/ShaneMill1/WMO_Header_Generator
 
@@ -45,6 +46,7 @@ is radar, where `CCCC` is the radar site, also read from the data.
 | **MRMS** (SBN notices) | product `short_name`; domain (from the store path, e.g. `…conus…`) | normalized product name + domain, in the notice entries | copying `code` → `TTAAII` and `cccc` → `CCCC` straight from the matched entry |
 | **RTMA / URMA** (TINs) | parameter `short_name`; `dataset\|resolution\|domain` key (from the store path, e.g. `rtma\|2p5\|conus`) | parameter → `T2` lookup, and dataset key → `A1` lookup, in the TIN tables | **composing** `TTAAII = T1 + T2 + A1 + A2ii` (T1/A2ii/CCCC are fixed per table) |
 | **GFS / GEFS / AQM** (tocgrib2 parm) | `grib_section3` (grid), `short_name` (→ parameter), PDT fields: level, forecast hour, generating process, statistical window | grid match + parameter + every PDT field the parm record pins (wildcards where the record leaves `-9999`) | copying `TTAAII` / `CCCC` from the matched parm record |
+| **HRRR** (tocgrib2 parm) | same identity, but read from **CF metadata**: grid from the `spatial_ref` grid-mapping + `x`/`y`; level from the scaled-value coords; forecast hour from `lead_time`; reference time from `init_time` | parameter + level + forecast hour, scoped to HRRR's own records (`KWBY`) | copying `TTAAII` / `CCCC` from the matched HRRR parm record |
 | **NEXRAD L3** (NOAAPort table) | `product_code`, `elevation_angle`, `site_id`, `scan_time` | `(product_code, elevation)` → one table row → mnemonic + `SDUS` tier | `TTAAII` = the row's `SDUS<tier>`; `CCCC` = `site_id` from the data |
 
 Two details worth calling out:
@@ -57,9 +59,16 @@ Two details worth calling out:
   come back unresolved).
 - **Exact vs parameter-level (GRIB2).** If the store's grid *is* a disseminated
   grid, the match is **exact** — the header is authoritative for that data. If the
-  store is on a native, non-disseminated grid (e.g. GFS at 0.25°), the resolver
-  reports the header NWS assigns to the *same field on its AWIPS grid*, flagged as
-  **parameter-level** with a caveat, never as if it were the real bulletin.
+  store is on a native, non-disseminated grid (e.g. GFS at 0.25°, HRRR at 3 km),
+  the resolver reports the header NWS assigns to the *same field on its AWIPS
+  grid*, flagged as **parameter-level** with a caveat, never as if it were the
+  real bulletin.
+- **Two GRIB2 metadata encodings.** The same GRIB2 identity can be stored two
+  ways. Some archives keep the raw GRIB2 Section 3 array (`grib_section3`) and
+  PDT prose; others (e.g. the CIRRUS HRRR stores) keep it as CF metadata — a
+  `spatial_ref` grid-mapping, projected `x`/`y`, and scaled-value level
+  coordinates. The resolver reads either; the join to the authoritative source is
+  identical once the grid, parameter, level, and forecast hour are in hand.
 
 ### Worked example (MRMS)
 
@@ -189,6 +198,33 @@ WMO: YHPY99 KWBC 110000
      authority   : ncep-gfs-awips -> grib2_awpgfs240.003:1
 ```
 
+### HRRR, CF-encoded (GRIB2) — parameter-level, with a caveat
+
+A CIRRUS HRRR store carries its GRIB2 identity as CF metadata (no
+`grib_section3`). The store type and model are detected automatically; the grid
+is read from the CF `spatial_ref`, and the field resolves to HRRR's own `KWBY`
+header. Being on the native 3 km grid (not the disseminated 2.5 km grid 184), it
+is a parameter-level match:
+
+```
+$ python read_icechunk.py --local /efs/cirrus_test_data/HRRR-2026-09-21-sample-v2.icechunk --limit 1
+Store type: CF-encoded GRIB2 (model source: ncep-hrrr-awips)
+WMO: YHCA73 KWBY 160700
+     product     : HGT
+     description : HGT      Cloud base lvl
+     match       : parameter-level (see note)
+     note        : NWS assigns this to the field on grid 'hrrr_awips_184_2p5km_lambert';
+                   the archive is the native file grid (1799x1059 gdt30), which is
+                   not disseminated under a WMO header
+     lead (h)    : 0.0
+     authority   : ncep-hrrr-awips -> grib2_awips_hrrrf00.184:56
+     source group: /cloud_ceiling/HGT
+```
+
+The forecast hour drives the `A2` character of the heading, so the same field
+across lead times produces `YHCA…`, `YHCB…`, `YHCC…` (f00, f01, f02, …), each
+tracing to the matching per-hour parm file.
+
 ### NEXRAD Level III, disseminated — resolves
 
 A radar store is detected automatically; local stores use `--local`.
@@ -247,6 +283,7 @@ Resolved 0 heading(s); 4 product(s) unresolved.
 | RTMA / URMA analysis field in the TINs | ✅ exact — `LTIA98 KWBR 312300` | header pieces published in the NWS TINs |
 | NEXRAD Level III SBN product (e.g. 165 DHC) | ✅ exact — `SDUS8 KTLX 081617` | listed in the NOAAPort radar table |
 | GFS / GEFS at native 0.25° resolution | ⚠️ parameter-level — `YHPY99 KWBC 110000` | the native grid isn't disseminated, so the header for the same field on the AWIPS grid is reported with a caveat (only where that field is headered; otherwise unresolved) |
+| HRRR at native 3 km (CF-encoded) | ⚠️ parameter-level — `YHCA73 KWBY 160700` | same as GFS: native grid isn't the disseminated 2.5 km grid, so HRRR's own `KWBY` header is reported with a caveat |
 | RTMA / URMA field not in the TINs (CEIL, SPFH, TCDC) | ❌ | no NWS record assigns it a header |
 | NEXRAD Level III, not on the SBN (e.g. 167, 168) | ❌ | real product, but never broadcast under a heading |
 | NEXRAD Level II base data | ❌ | distributed as whole-volume files (LDM/FTP), never headered |
@@ -264,10 +301,12 @@ heading to find.
 python read_icechunk.py                          # default MRMS store (S3)
 python read_icechunk.py --prefix path/to/store.ic --explain
 python read_icechunk.py --local /path/to/radar_store   # local radar store
+python read_icechunk.py --local /path/to/hrrr.icechunk # CF-encoded GRIB2 (HRRR)
+#   model source is inferred from the path; override with --source <id>
 
 # Rebuild the registry explicitly (e.g. after editing sources.json).
 python build_registry.py
-python build_registry.py --source nws-noaaport-radar
+python build_registry.py --source ncep-hrrr-awips
 
 python -m pytest tests/ -q                       # hermetic tests, no network
 ```
@@ -282,7 +321,7 @@ a different piece of the question:
 
 | Source | What it provides |
 | --- | --- |
-| **tocgrib2 parm** (GFS · GEFS · AQM) | NCEP's operational config that stamps the WMO header onto each model GRIB2 product |
+| **tocgrib2 parm** (GFS · GEFS · AQM · HRRR) | NCEP's operational config that stamps the WMO header onto each model GRIB2 product (HRRR's are the `KWBY` parm files published per model version on the NCO server) |
 | **MRMS SBN notices** | NWS bulletins assigning headers to MRMS products by name |
 | **RTMA / URMA TINs** | NWS Technical Implementation Notices giving the header pieces for the analysis grids |
 | **NOAAPort radar table** | NWS list of which NEXRAD Level III products are broadcast on the SBN and under which `SDUS` heading |
@@ -298,8 +337,8 @@ headers — that is a dissemination decision, not a property of the data.
 
 | Path | Role |
 | --- | --- |
-| `read_icechunk.py` | CLI entry point; branches GRIB2 vs radar |
-| `grib_identity.py` / `radar_identity.py` | read a store's metadata into a product identity |
+| `read_icechunk.py` | CLI entry point; branches GRIB2-array vs CF-encoded GRIB2 vs radar |
+| `grib_identity.py` / `radar_identity.py` | read a store's metadata into a product identity (`grib_identity` handles both the `grib_section3` and CF encodings) |
 | `wmo_header.py` | match an identity to a header, or return `Unresolved` |
 | `build_registry.py` | fetch, verify, and parse the pinned sources into the registry |
 | `tocgrib2_parm.py` · `nws_notice.py` · `nexrad_radar.py` | parsers for each source format |

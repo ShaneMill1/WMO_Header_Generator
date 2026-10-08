@@ -32,9 +32,20 @@ import icechunk
 import numpy as np
 import xarray as xr
 
-from grib_identity import extract_identity, message_pdt
+from grib_identity import (
+    extract_identity,
+    extract_identity_cf,
+    is_cf_grib_dataset,
+    message_pdt,
+)
 from radar_identity import extract_radar_identity, is_radar_store
-from wmo_header import Unresolved, load_registry, resolve, resolve_radar
+from wmo_header import (
+    Unresolved,
+    load_registry,
+    resolve,
+    resolve_by_grib_identity,
+    resolve_radar,
+)
 
 # The icechunk rust client emits harmless CA-cert warnings on this host.
 warnings.filterwarnings("ignore")
@@ -156,11 +167,102 @@ def infer_dataset_key(prefix: str):
     return f"{dataset}|{res}|{domain}"
 
 
+def infer_model_source(text: str):
+    """Infer which registry source a store belongs to, from its path.
+
+    A WMO header is a per-model dissemination decision, so a CF-encoded GRIB2
+    store resolves against its own model's records (e.g. an HRRR store takes
+    HRRR's KWBY assignments, not another model's). Returns a source id or None.
+    """
+    low = (text or "").lower()
+    if "hrrr" in low:
+        return "ncep-hrrr-awips"
+    return None
+
+
 def iter_variables(dt: xr.DataTree):
     for gpath in sorted(dt.groups):
         ds = dt[gpath].to_dataset()
         for var_name, da in ds.data_vars.items():
             yield gpath, var_name, da, ds
+
+
+def run_grib_cf(dt: xr.DataTree, registry, prefer_source, limit=None, explain=False):
+    """Resolve a CF-encoded GRIB2 store (e.g. CIRRUS HRRR).
+
+    The grid lives on the root group's ``spatial_ref``; product groups carry the
+    scaled-value level coordinates. Fan-out is over level x lead-time (per init
+    time). Results are typically parameter-level, since these archives are on a
+    model's native grid rather than its disseminated AWIPS grid.
+    """
+    root = dt["/"].to_dataset()
+    n_ok = 0
+    unresolved: dict = {}
+    emitted: dict = {}
+
+    for gpath in sorted(dt.groups):
+        if gpath == "/":
+            continue
+        ds = dt[gpath].to_dataset()
+        if not ds.data_vars:
+            continue
+        for var_name, da in ds.data_vars.items():
+            ident = extract_identity_cf(da, ds, registry, group_attrs=ds.attrs, root=root)
+            src = f"{gpath}/{var_name}"
+
+            levels = ident.levels or [None]
+            leads = ident.lead_hours or [None]
+            t = ident.times[0] if ident.times else None
+
+            for lvl in levels:
+                for lead in leads:
+                    pdt = message_pdt(ident, lvl, lead)
+                    result = resolve_by_grib_identity(
+                        ident.short_name,
+                        {
+                            "section3": ident.section3,
+                            "pdtn": ident.pdtn,
+                            "pdt": pdt,
+                            "model_cycle_hour": ident.model_cycle_hour,
+                        },
+                        t,
+                        registry,
+                        prefer_source=prefer_source,
+                    )
+
+                    if isinstance(result, Unresolved):
+                        if ident.short_name not in unresolved:
+                            unresolved[ident.short_name] = result
+                        continue
+
+                    key = (result.heading, ident.short_name, repr(lvl), repr(lead))
+                    if key in emitted:
+                        continue
+                    emitted[key] = True
+                    n_ok += 1
+
+                    print(f"WMO: {result.heading}")
+                    print(f"     product     : {ident.short_name}")
+                    print(f"     description : {result.description}")
+                    if result.match == "parameter":
+                        print(f"     match       : parameter-level (see note)")
+                        print(f"     note        : {result.caveat}")
+                    if lvl is not None:
+                        print(f"     level       : {lvl}")
+                    if lead is not None:
+                        print(f"     lead (h)    : {lead}")
+                    print(f"     authority   : {result.source_id} -> {result.source_ref}")
+                    print(f"     source group: {src}")
+                    print()
+
+                    if limit and n_ok >= limit:
+                        print(f"Resolved {n_ok} heading(s) (limit reached).")
+                        return 0
+
+    print(f"Resolved {n_ok} heading(s); {len(unresolved)} product(s) unresolved.")
+    if unresolved:
+        print(f"Unresolved products: {sorted(unresolved)}")
+    return 0
 
 
 def select(values: list, want_all: bool, index):
@@ -188,6 +290,10 @@ def main(argv=None) -> int:
     p.add_argument("--local", default=None,
                    help="Path to a local-filesystem icechunk store (e.g. a radar "
                         "store on /efs). Bypasses S3.")
+    p.add_argument("--source", default=None,
+                   help="Registry source id to resolve a CF-encoded GRIB2 store "
+                        "against (e.g. ncep-hrrr-awips). Inferred from the path "
+                        "when omitted.")
     g = p.add_mutually_exclusive_group()
     g.add_argument("--time-index", type=int, default=None)
     g.add_argument("--all-times", action="store_true")
@@ -209,6 +315,24 @@ def main(argv=None) -> int:
     if is_radar_store(dt):
         print("Store type: NEXRAD radar (CF/Radial)\n")
         return run_radar(dt, registry)
+
+    # CF-encoded GRIB2 stores (e.g. CIRRUS HRRR) carry the grid as a CF
+    # spatial_ref on the root rather than a grib_section3 array. Detect by
+    # checking the root plus any product group for the CF markers.
+    root_ds = dt["/"].to_dataset()
+    cf_group = next(
+        (dt[g].to_dataset() for g in sorted(dt.groups)
+         if g != "/" and is_cf_grib_dataset(dt[g].to_dataset(), root=root_ds)),
+        None,
+    )
+    if cf_group is not None:
+        prefer = args.source or infer_model_source(args.local or args.prefix)
+        print(f"Store type: CF-encoded GRIB2 (model source: {prefer or 'unknown'})\n")
+        if prefer is None:
+            print("No model source could be inferred from the store path; pass "
+                  "--source <id> (e.g. ncep-hrrr-awips).")
+            return 2
+        return run_grib_cf(dt, registry, prefer, limit=args.limit, explain=args.explain)
 
     domain = args.domain or infer_domain(args.prefix)
     dataset_key = infer_dataset_key(args.prefix)

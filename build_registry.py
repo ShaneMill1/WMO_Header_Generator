@@ -279,6 +279,115 @@ def build_tocgrib2_source(src: dict, cache_dir: Path) -> dict:
     }
 
 
+def build_tocgrib2_url_source(src: dict, cache_dir: Path) -> dict:
+    """Build a tocgrib2_parm source whose parm files are loose URLs, not a tarball.
+
+    Same record format and integrity checks as :func:`build_tocgrib2_source`, but
+    the parm files are fetched individually from the NCO ``nwprod`` server (which
+    publishes them as loose files per model version) rather than extracted from a
+    GitHub release tarball. Each file is pinned by sha256 in ``sources.json``.
+    """
+    print(f"Building source {src['id']!r} @ {src['version']}")
+    binding = src["grid_binding"]
+    grids = binding["grids"]
+    unbound = binding.get("unbound", [])
+
+    entries: list = []
+    file_manifest: list = []
+    files = src["parm_files"]  # list of {url, expected_sha256}
+
+    for spec in files:
+        url = spec["url"]
+        name = url.rsplit("/", 1)[-1]
+        data = fetch_bytes(url, cache_dir)
+        observed = sha256_bytes(data)
+        expected = spec.get("expected_sha256")
+        if expected and expected not in ("PIN_AFTER_FIRST_BUILD", observed):
+            raise BuildError(
+                f"{name}: sha256 mismatch -- source changed.\n"
+                f"  expected {expected}\n  observed {observed}"
+            )
+        text = data.decode("utf-8", errors="replace")
+
+        grid, unbound_reason = match_grid(name, grids, unbound)
+        if grid is None and unbound_reason is None:
+            raise BuildError(
+                f"{src['id']}: parm file {name!r} matches no grid binding; add it "
+                f"to sources.json (bound or unbound)."
+            )
+
+        records = parse_text(text, path=name)
+        raw_count = sum(1 for ln in text.splitlines() if "GRIBIDS" in ln.upper())
+        if raw_count != len(records):
+            raise BuildError(
+                f"{name}: {raw_count} GRIBIDS lines but {len(records)} parsed; "
+                f"refusing to build a partial registry"
+            )
+        problems = validate(records)
+        if problems:
+            raise BuildError(
+                f"{name}: {len(problems)} uninterpretable record(s); first: "
+                f"{problems[0]}"
+            )
+
+        file_manifest.append({
+            "file": name,
+            "url": url,
+            "sha256": observed,
+            "records": len(records),
+            "grid": grid["name"] if grid else None,
+            "usable": grid is not None,
+            "unusable_reason": unbound_reason,
+        })
+        if grid is None:
+            continue
+
+        records = [r for r in records if not _is_placeholder_record(r)]
+
+        expect_a1 = grid.get("expect_a1")
+        if expect_a1 is not None:
+            bad = {r.ttaaii[2] for r in records} - {expect_a1}
+            if bad:
+                raise BuildError(
+                    f"{name}: grid binding {grid['name']!r} expects A1="
+                    f"{expect_a1!r} (ON-388 Table A.2: {grid.get('a1_meaning_on388')}) "
+                    f"but found A1 {sorted(bad)}; grid binding may have changed"
+                )
+
+        for r in records:
+            entries.append({
+                "ttaaii": r.ttaaii,
+                "cccc": r.cccc,
+                "grid": grid["name"],
+                "desc": r.desc.strip(),
+                "pdtn": r.pdtn,
+                "pdt": r.pdt_fields(),
+                "cycle": None,
+                "source_id": src["id"],
+                "source_file": name,
+                "source_line": r.line_no,
+                "source_raw": r.raw,
+            })
+
+    print(f"  parm files     : {len(file_manifest)}")
+    print(f"  usable records : {len(entries)}")
+
+    return {
+        "source": {
+            "id": src["id"],
+            # Emit the canonical kind so the Registry indexes these records in
+            # by_grid alongside the tarball-sourced tocgrib2 parm records.
+            "kind": "tocgrib2_parm",
+            "authority": src["authority"],
+            "version": src["version"],
+            "tocgrib2_reference": src["tocgrib2_reference"],
+            "grid_binding": binding,
+        },
+        "files": file_manifest,
+        "entries": entries,
+    }
+
+
 def fetch_bytes(url: str, cache_dir: Path) -> bytes:
     """Download a document (cached by URL hash)."""
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -961,6 +1070,7 @@ def main(argv=None) -> int:
         "nws_awips_xref": build_awips_xref_source,
         "nws_analysis_header": build_nws_analysis_header_source,
         "nexrad_radar": build_nexrad_radar_source,
+        "tocgrib2_parm_url": build_tocgrib2_url_source,
     }
 
     for src in sources:
