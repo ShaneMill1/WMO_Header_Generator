@@ -29,7 +29,7 @@ from typing import Optional
 # for status/text products; we capture the T1T2 generically.
 ROW_RE = re.compile(
     r"\b(?P<code>\d{1,3})\s*/\s*(?P<rpg>[A-Z0-9]{1,4})\s+"
-    r"(?P<tt>[A-Z]{4})(?P<tier>\d)(?P<i>i)\s+cccc\s+"
+    r"(?P<tt>[A-Z]{4})(?P<tier>\d)i\s+cccc\s+"
     r"(?P<nnn>[A-Z0-9]{3})\s+xxx\s*"
     r"(?P<elev>-?\d[\d.,\s]*|Elevation\s+Angle\s+Not\s+Applicable)?",
     re.I,

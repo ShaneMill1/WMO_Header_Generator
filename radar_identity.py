@@ -89,7 +89,7 @@ def is_radar_store(dt) -> bool:
         for gpath in dt.groups:
             if _looks_radar(dt[gpath].to_dataset().attrs):
                 return True
-    except Exception:  # noqa: BLE001
+    except Exception:
         return False
     return False
 
@@ -104,7 +104,7 @@ def _first(values) -> Optional[float]:
         return None
 
 
-def _infer_level(ds, root_attrs: dict) -> int:
+def _infer_level(ds) -> int:
     """Level III iff the group names a product_code; else Level II."""
     if ds.attrs.get("product_code") is not None:
         return 3
@@ -122,7 +122,7 @@ def extract_radar_identity(ds, root_attrs: Optional[dict] = None) -> RadarIdenti
     root_attrs = root_attrs or {}
 
     ident = RadarIdentity(
-        level=_infer_level(ds, root_attrs),
+        level=_infer_level(ds),
         moment_name=a.get("moment_name"),
         product_name=a.get("product_name"),
         site_id=a.get("site_id") or root_attrs.get("site_id"),

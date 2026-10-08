@@ -1,25 +1,28 @@
 """Resolve WMO abbreviated headings for the products in an icechunk store.
 
-Thin CLI over :mod:`grib_identity` (metadata -> GRIB2 identity) and
-:mod:`wmo_header` (identity -> authoritative heading).
+CLI over the identity extractors and :mod:`wmo_header`. It opens an icechunk
+store, detects its type, and routes it:
+
+* GRIB2 stores with a ``grib_section3`` array -> :mod:`grib_identity`
+  (fan-out over level x time);
+* CF-encoded GRIB2 stores, e.g. HRRR -> :mod:`grib_identity`'s CF extractor
+  (fan-out over level x lead time), scoped to the store's model;
+* CF/Radial NEXRAD stores -> :mod:`radar_identity` (fan-out over sweeps/products).
 
 A heading is printed only when every field traces to an authoritative record in
 ``registry/``. Anything else prints as UNRESOLVED with the reason -- never a
 partial or guessed heading.
 
-Note that one archived variable can correspond to many GRIB2 messages (one per
-level per time), each with its own heading, so results fan out over those axes.
-
 Usage::
 
-    python read_icechunk.py                          # MRMS (default store)
+    python read_icechunk.py                          # MRMS (default S3 store)
     python read_icechunk.py --prefix <path-to.ic>
-    python read_icechunk.py --bucket B --prefix P
-    python read_icechunk.py --domain conus           # override domain evidence
+    python read_icechunk.py --local <path-to.icechunk>   # a store on disk
+    python read_icechunk.py --source ncep-hrrr-awips     # force a model source
     python read_icechunk.py --all-times --all-levels
     python read_icechunk.py --explain                # show matching evidence
 
-Credentials come from the environment; the store is opened read-only.
+S3 credentials come from the environment; the store is opened read-only.
 """
 
 from __future__ import annotations
@@ -187,7 +190,7 @@ def iter_variables(dt: xr.DataTree):
             yield gpath, var_name, da, ds
 
 
-def run_grib_cf(dt: xr.DataTree, registry, prefer_source, limit=None, explain=False):
+def run_grib_cf(dt: xr.DataTree, registry, prefer_source, limit=None):
     """Resolve a CF-encoded GRIB2 store (e.g. CIRRUS HRRR).
 
     The grid lives on the root group's ``spatial_ref``; product groups carry the
@@ -332,7 +335,7 @@ def main(argv=None) -> int:
             print("No model source could be inferred from the store path; pass "
                   "--source <id> (e.g. ncep-hrrr-awips).")
             return 2
-        return run_grib_cf(dt, registry, prefer, limit=args.limit, explain=args.explain)
+        return run_grib_cf(dt, registry, prefer, limit=args.limit)
 
     domain = args.domain or infer_domain(args.prefix)
     dataset_key = infer_dataset_key(args.prefix)
