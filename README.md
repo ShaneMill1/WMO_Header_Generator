@@ -404,8 +404,6 @@ do not carry one. It does not invent header assignment, it recovers an assignmen
 NCEP / NWS already made, with provenance, and it extends the same approach to
 radar and CF-encoded stores that `tocgrib2` does not cover.
 
-Content was rephrased for compliance with licensing restrictions.
-
 ## Project layout
 
 | Path | Role |
