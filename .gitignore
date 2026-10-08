@@ -11,7 +11,3 @@ __pycache__/
 # every build and not meant to be diffed or committed. Rebuild with:
 #   python build_registry.py
 registry/registry.db
-
-# Legacy file-based registry output (superseded by registry.db).
-registry/*.entries.jsonl.gz
-registry/*.manifest.json

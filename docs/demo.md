@@ -25,15 +25,16 @@ $PY build_registry.py                        # all sources
 $PY build_registry.py --source nws-noaaport-radar   # just the radar table
 ```
 
-The radar source parses the NOAAPort radar products table (pinned by sha256):
+The output is a single SQLite file, `registry/registry.db`. A full build
+rewrites it; `--source` upserts one source into it. The radar source parses the
+NOAAPort radar products table (pinned by sha256):
 
 ```
 Building source 'nws-noaaport-radar'
   fetching: https://www.weather.gov/media/tg/noaaport_radar_products.pdf
   rows            : 96
   product codes   : 29
-  wrote nws-noaaport-radar.entries.jsonl.gz (0.00 MB)
-  wrote nws-noaaport-radar.manifest.json
+  upserted nws-noaaport-radar (96 entries)
 ```
 
 ---

@@ -3,8 +3,7 @@
 The registry is build output: ``build_registry.py`` turns the pinned sources in
 ``sources.json`` into per-source *manifests* (non-row data: code tables, grid
 specs, CCCC lists, abbreviation maps) and *entries* (the row data: notice,
-parm, and radar records). This module stores both in a single SQLite file,
-replacing the earlier ``*.manifest.json`` + ``*.entries.jsonl.gz`` layout.
+parm, and radar records). This module stores both in a single SQLite file.
 
 The shape the resolver consumes is unchanged: :func:`read_db` returns
 ``(manifest, entries)`` pairs, exactly what ``Registry`` already expects from a
