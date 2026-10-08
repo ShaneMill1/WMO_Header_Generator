@@ -25,8 +25,8 @@ bucket.
 | **Level encoding** | vertical coordinate named by physical surface type (`isobaric_surface`, `specified_height_level_above_ground`, `mean_sea_level`, `level_at_specified_pressure_difference_from_ground_to_level`, ...) | raw GRIB2 fixed-surface primitives as coords (`scaled_value_of_first_fixed_surface`, `type_of_second_fixed_surface`, `level_start`/`level_end`, `level`) |
 | **Time encoding** | `time`, `forecast_reference_time`, `lead_time` | `time`, `init_time`, `lead_time` |
 | **Variable attributes** | rich: `short_name`, `standard_name`, `grib_section3`, `product_definition_template_number`, `type_of_first/second_fixed_surface`, `type_of_generating_process`, `statistical_process`, `cell_methods`, `originating_center`/`sub_center`, `master_table_info`, grid geometry (`gridlength_*`, `latitude_first_gridpoint`, ...) | sparse: `long_name`, `units`, `valid_min`, `valid_max` |
-| **Group attributes** | grid geometry (`crs_wkt`, `gridlength_x_direction`, `gridlength_y_direction`, `latitude_first_gridpoint`, `longitude_first_gridpoint`) | **model (HRRR):** `code`, `name`, `units`<br>**radar:** `site_id`, `product_code`, `product_name`, `moment_name`, `scan_time`, `vcp_number`, `sweep_mode`, `sweep_number`, `latitude`, `longitude`, `altitude` |
-| **Root attributes** | none of note | radar: `Conventions`, `instrument_name`, `site_id`, `site_name`, `scan_time`, `vcp_number` |
+| **Group attributes** | grid geometry (`crs_wkt`, `gridlength_x_direction`, `gridlength_y_direction`, `latitude_first_gridpoint`, `longitude_first_gridpoint`) | **model (HRRR):** `code`, `name`, `units`<br>**radar:** `site_id`, `product_code`, `product_name`, `moment_name`, `scan_time`, `vcp_number`, `fixed_angle`, `sweep_mode`, `sweep_number`, `latitude`, `longitude`, `altitude` |
+| **Root attributes** | none of note | **model (HRRR):** `processed_files` (provenance only)<br>**radar:** `Conventions`, `instrument_name`, `site_id`, `site_name`, `scan_time`, `vcp_number` |
 | **Ensemble** | `perturbation_number` (GEFS member dimension) | none in the sample |
 
 ## Headline difference
@@ -70,8 +70,11 @@ a convention difference.
 ## Summary
 
 The gap is one of encoding convention, not of missing information. The same
-identity exists on both sides: nwsviz places it inline on each variable, while
-cirrus pushes it up to the group (HRRR) or root / nested group (radar). Grid and
-vertical-level information likewise differ only in how they are stored, raw GRIB2
-primitives on cirrus versus pre-interpreted CF forms on nwsviz, not in what is
+identity exists on both sides: nwsviz places it inline on each variable (as GRIB2
+attributes, including the raw `grib_section3` array for the grid), while cirrus
+pushes it up to the group (HRRR) or root / nested group (radar) and encodes the
+grid as a CF `spatial_ref` grid-mapping. Vertical levels differ the same way:
+nwsviz names each coordinate by its interpreted surface type (`isobaric_surface`,
+...), while cirrus keeps the raw GRIB2 fixed-surface primitives
+(`scaled_value_of_first_fixed_surface`, ...). Neither difference changes what is
 represented. Time is encoded the same way on both.
