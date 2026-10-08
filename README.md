@@ -1,26 +1,15 @@
 # cirrus_wmo — WMO abbreviated heading resolver
+# cirrus_wmo — WMO abbreviated heading resolver
 
 Repository: https://github.com/ShaneMill1/WMO_Header_Generator
 
-## What this does, in one minute
+## Overview
 
-Weather data (model forecasts, radar, etc.) gets shipped around the world over a
-shared network. Every file that travels on that network wears a short label on
-the front — the **WMO abbreviated heading** — so the routing computers know what
-it is and where to send it. It looks like this:
-
-```
-YAUP06 KWNR 301800
-```
-
-That label isn't random, and it isn't something you can calculate from the data.
-A person decided, once, "this product gets this label," and wrote it down in an
-official document. This tool answers a simple question:
-
-> I have a weather dataset sitting in storage. **What label would it travel
-> under** — and if it doesn't get one, why not?
-
-You point it at a dataset; it prints the label (or a plain reason there is none):
+Given a weather dataset in storage, `cirrus_wmo` reports the WMO abbreviated
+heading it would be disseminated under — or, if it would not be disseminated, the
+specific reason why. The heading cannot be computed from the data; it is a human
+allocation recorded in an authoritative document. The tool resolves it by
+matching the dataset's identity against those documents.
 
 ```
 $ python read_icechunk.py
@@ -31,74 +20,55 @@ WMO: YAUP06 KWNR 301800
      authority   : nws-mrms-sbn -> MRMS-v12.2-supp
 ```
 
-It handles the common U.S. weather products — model output (GFS, GEFS, AQM, HRRR,
-MRMS, RTMA/URMA) and NEXRAD radar.
+Supported products: model output (GFS, GEFS, AQM, HRRR), MRMS, RTMA/URMA, and
+NEXRAD radar.
 
-## Decoding the label
-
-The heading is four chunks. You don't need to memorize this, but it helps to
-know what the letters mean when you see them below:
+## The heading
 
 ```
 YAUP06   KWNR   301800   (BBB)
-  │       │       │        └─ optional: marks a correction/amendment
-  │       │       └─ WHEN:  day 30, 18:00 UTC   (this is the only part from the data)
-  │       └─ WHO:   the office that put it out   (KWNR = a national center)
-  └─ WHAT: the product + region, as a code       (YAUP06 ≈ a specific MRMS product over CONUS)
+  │       │       │        └─ optional correction/amendment indicator
+  │       │       └─ day 30, 18:00 UTC — the only field derived from the data
+  │       └─ originating center (KWNR)
+  └─ product + region code (YAUP06)
 ```
 
-Jargon you'll meet, defined once:
-
-| Term | Plain meaning |
+| Term | Meaning |
 | --- | --- |
-| **WMO heading** | the routing label above (`TTAAII CCCC YYGGgg`) |
-| **TTAAII** | the "what + where" code (first chunk, e.g. `YAUP06`) |
-| **CCCC** | the "who sent it" code (e.g. `KWNR`, `KWBC`) |
-| **YYGGgg** | day/hour/minute, computed from the data's timestamp |
-| **disseminated** | actually broadcast on the network (if it isn't, it has no label) |
-| **GRIB2** | the standard file format for gridded model/analysis data |
-| **NEXRAD** | the national weather-radar network |
-| **icechunk / zarr** | the storage format the datasets live in |
-| **registry** | this tool's local database of "which product → which label" |
+| **WMO heading** | `TTAAII CCCC YYGGgg` |
+| **TTAAII** | product/region designator (e.g. `YAUP06`) |
+| **CCCC** | originating center (e.g. `KWNR`, `KWBC`) |
+| **YYGGgg** | day/hour/minute, derived from the data's timestamp |
+| **disseminated** | broadcast on the network; a product that isn't has no heading |
+| **GRIB2** | standard format for gridded model/analysis data |
+| **NEXRAD** | national weather-radar network |
+| **icechunk / zarr** | storage format the datasets live in |
+| **registry** | this tool's local database of product → heading mappings |
 
-## How it works
+## Architecture
 
 ![architecture](docs/architecture.png)
 
-**Reading the diagram, left to right:** a dataset comes in (1); the tool reads
-its metadata to figure out *what product it is* (2); it looks that product up in
-a built-in library of official documents that record who assigned which label
-(3); it tries to match (4); and it either prints the label or says, specifically,
-why there is none (5). The one-line version:
+1. **Input** — a dataset in storage (an icechunk / zarr store).
+2. **Identify** — read the dataset's metadata into a product identity. Model data
+   and radar describe themselves differently, so each has its own reader.
+3. **Registry** — a local SQLite database (`registry.db`) built from pinned NWS /
+   NCEP / WMO documents that record which product gets which heading. Each
+   document is pinned to an exact version and checksum (see "Registry database").
+4. **Resolve** — match the identity against those sources.
+5. **Result** — a heading traced to a record, or an `Unresolved` with a reason.
 
-1. **Input** — a dataset in storage (an icechunk / zarr "store").
-2. **Identify** — read the dataset's metadata to work out what the product is.
-   Model data and radar describe themselves differently, so each gets its own
-   reader.
-3. **The registry** — a local SQLite database (`registry.db`) built from
-   official NWS / NCEP / WMO documents that say which product gets which label.
-   Each document is pinned to an exact version and checksum, so the answers are
-   traceable, not guessed. (What's inside it is covered under "Registry
-   database" below.)
-4. **Resolve** — match the product against those sources.
-5. **Result** — either a label (it traced to a record) or an "unresolved" with a
-   clear reason.
+## Mapping
 
-## How the mapping works
+Resolution is a lookup, not a computation. The tool identifies the product,
+finds the record in an authoritative table that lists it, and reads the heading
+off that record. Only `YYGGgg` is computed, from the data's timestamp.
 
-This is the part that trips people up, so here's the mental model: **it's a
-lookup, not a calculation.** The tool never *builds* a label out of the data. It
-figures out what the product is, finds the one row in an official table that
-already lists that product, and copies the label off that row. The only piece it
-computes is the timestamp (`YYGGgg`), straight from the data's own clock.
-
-The catch is that different products are identified by different things — a radar
-product by its site and tilt, a model field by its grid and variable — so there's
-no single "key" that works for all of them. Each kind of source is matched on the
-fields that source actually uses. The table below is the full breakdown; the one
-rule that holds everywhere is: **`TTAAII` and `CCCC` come from the official
-source, `YYGGgg` comes from the data** (radar is the lone twist — its `CCCC` is
-the radar site, which is also read from the data).
+Different products are identified by different attributes — radar by site and
+tilt, a model field by grid and variable — so there is no single lookup key. Each
+source is matched on the fields it actually uses. The invariant across all of
+them: **`TTAAII` and `CCCC` come from the source, `YYGGgg` comes from the data.**
+Radar is the one exception — its `CCCC` is the radar site, read from the data.
 
 | Source | Fields read from the store | Matched against | Produces the header by |
 | --- | --- | --- | --- |
@@ -131,18 +101,12 @@ Two details worth calling out:
 
 ### Worked example (MRMS)
 
-Picture two tables side by side. On the left, the one dataset you're holding. On
-the right, a long list of products someone already assigned labels to. You find
-the row on the right that describes your dataset, and read the label off it.
-That's the whole trick — the matching row *already contains* the answer.
-
 ![how a header is resolved](docs/resolve_example.png)
 
-**Reading the diagram:** your dataset's metadata (left) is matched to one row in
-the MRMS source table (middle); the label fields on that row — highlighted in
-green — are copied straight into the final heading (right). Only the timestamp is
-filled in from the data. Here it is step by step, for the MRMS example at the
-top of this README:
+The dataset's metadata (left) is matched to one row in the MRMS source table
+(middle); the heading fields on that row — highlighted — are copied into the
+final heading (right), with only the timestamp filled in from the data. Step by
+step, for the MRMS example at the top of this README:
 
 1. **Read the identity from the store.** The variable's metadata gives
    `short_name = "MultiSensor_QPE_24H_Pass2"` and `time = 2025-09-30T18:00`; the
@@ -165,41 +129,39 @@ top of this README:
 
    Result: **`YAUP06 KWNR 301800`.**
 
-The header `YAUP06 KWNR` was never derived from the data — it was assigned once,
-recorded in the notice, and we found it by matching the product's identity. The
-other sources differ only in the join key (and, for RTMA/URMA, the header is
-assembled from table pieces instead of copied whole), but the shape is the same:
-**identify → match a pre-written record → read the header, date it from the data.**
+`YAUP06 KWNR` was assigned once, recorded in the notice, and found by matching
+the product's identity. The other sources differ only in the join key (and, for
+RTMA/URMA, the heading is assembled from table pieces rather than copied whole),
+but the shape is identical: **identify → match a pre-written record → read the
+heading, date it from the data.**
 
-## It is a resolver, not a generator
+## Resolver, not generator
 
-A heading cannot be computed from data. Its [form](https://www.weather.gov/tg/headef)
-is fixed:
+The [form](https://www.weather.gov/tg/headef) of a heading is fixed:
 
 ```
 T1T2A1A2ii  CCCC  YYGGgg  (BBB)
 ```
 
-but the specific `A2ii` and `CCCC` for a product are a **human allocation
-decision**, made once when the product is added to dissemination and written
-down in an operational config or a public notice. The `ii` is a two-digit number
-assigned from the WMO/national-practice tables; it is a bookkeeping designator,
-not something derivable from the data.
+but the specific `A2ii` and `CCCC` for a product are a human allocation decision,
+made once when the product is added to dissemination and recorded in an
+operational config or public notice. The `ii` is a two-digit designator assigned
+from the WMO/national-practice tables; it is not derivable from the data.
 
-Even the operational tool (`tocgrib2`) doesn't compute headings; it looks them up
-in pre-written records and copies the string out, stamping only the `YYGGgg`
-day/hour from the data. This project runs that lookup **backwards**: given
-archived metadata, find the allocation someone already made. Where no allocation
-exists, there is no heading to find.
+The operational tool (`tocgrib2`) does not compute headings either — it looks
+them up in pre-written records and copies the string out, stamping only the
+`YYGGgg` day/hour from the data. This project runs that lookup in reverse: given
+archived metadata, find the allocation already made. Where none exists, there is
+no heading to find.
 
 ## Accurate or nothing
 
-A heading is emitted only when every field traces to an authoritative record.
-Otherwise you get an `Unresolved` that says what was missing. The resolver never
-guesses: it won't default a domain or originating office, won't invent a
-timestamp, and won't pick between candidates the evidence can't distinguish. A
-"no header" answer is often the *correct* answer — see the Demo for which
-products have a heading and which don't.
+A heading is emitted only when every field traces to an authoritative record;
+otherwise the result is an `Unresolved` stating what was missing. The resolver
+does not default a domain or originating center, invent a timestamp, or choose
+between candidates the evidence cannot distinguish. An unresolved result is often
+the correct answer — see the Demo for which products have a heading and which do
+not.
 
 ## Demo
 
@@ -338,7 +300,7 @@ UNRESOLVED: radar  (group /sweep_0)
 Resolved 0 heading(s); 4 product(s) unresolved.
 ```
 
-### What resolves, and why
+### Summary of results
 
 | Product | Result | Why |
 | --- | --- | --- |
@@ -351,16 +313,15 @@ Resolved 0 heading(s); 4 product(s) unresolved.
 | NEXRAD Level III, not on the SBN (e.g. 167, 168) | ❌ | real product, but never broadcast under a heading |
 | NEXRAD Level II base data | ❌ | distributed as whole-volume files (LDM/FTP), never headered |
 
-Three kinds of result: an **exact** header (authoritative for that data), a
-**parameter-level** header (the field is headered on a different, disseminated
-grid — reported with a caveat, never silently), or **unresolved** with a reason.
-A ❌ is the correct answer, not a gap: those products genuinely have no WMO
-heading to find.
+Three result types: an **exact** heading (authoritative for that data), a
+**parameter-level** heading (the field is headered on a different, disseminated
+grid, reported with a caveat), or **unresolved** with a reason. A ❌ reflects a
+product with no WMO heading to find, not a gap in coverage.
 
 ## Usage
 
 ```bash
-# Just run it. The registry builds itself on first use.
+# The registry builds itself on first use.
 python read_icechunk.py                          # default MRMS store (S3)
 python read_icechunk.py --prefix path/to/store.ic --explain
 python read_icechunk.py --local /path/to/radar_store   # local radar store
@@ -377,10 +338,10 @@ python -m pytest tests/ -q                       # hermetic tests, no network
 The default MRMS store is on S3 and needs AWS credentials in the environment;
 local stores (e.g. radar on `/efs`) use `--local` and need none.
 
-## The sources
+## Sources
 
-The registry is built from pinned, hash-verified public documents. Each answers
-a different piece of the question:
+The registry is built from pinned, hash-verified public documents, each covering
+a different piece of the mapping:
 
 | Source | What it provides |
 | --- | --- |
@@ -391,10 +352,10 @@ a different piece of the question:
 | **WMO / GRIB2 code tables + grib2io** | reference tables for what a field *is* (parameter, level, process) — not header assignment |
 | **XR-09 office directory** | official list of valid NWS office identifiers (CCCC), used to sanity-check the originating office |
 
-Two layers are kept deliberately separate: **identity** (what a field is) versus
-**header assignment** (which header, if any, NWS gives it). grib2io answers the
+Two layers are kept deliberately separate: **identity** (what a field is) and
+**heading assignment** (which heading, if any, NWS gives it). grib2io answers the
 first; only the parm files and notices answer the second. No GRIB library assigns
-headers — that is a dissemination decision, not a property of the data.
+headings — that is a dissemination decision, not a property of the data.
 
 ## Project layout
 
@@ -419,28 +380,22 @@ document, cited per entry in the database.
 
 ### Registry database
 
-The "registry" is just one SQLite file, `registry/registry.db` — the local
-library of official product-to-label mappings the tool looks things up in. You
-build it once (or let the tool build it on first run) and then every lookup is
-offline.
+The registry is a single SQLite file, `registry/registry.db`, holding the
+product-to-heading mappings. It is built once (or on first run) and every lookup
+thereafter is offline.
 
 ![registry schema](docs/registry_schema.png)
 
-**Reading the diagram — picture a filing cabinet:**
+Three tables:
 
-- **Folders** — one per official document the labels came from (the MRMS notice,
-  the GFS config, the radar table, …). A folder just records *where* a set of
-  labels came from, plus any reference tables that document needs.
-- **Cards** — inside each folder, one card per product-to-label assignment. A
-  card holds what the document said: the product's description and its two label
-  codes (the "what" `TTAAII` and the "who" `CCCC`). One folder holds many cards.
-- **A lookup** (bottom strip) — the tool takes your dataset, finds the one card
-  whose product matches, reads the two codes off it, and stamps on the time from
-  the data. If no card matches, it says so and explains why — it never invents a
-  label.
+- **`source`** — one row per pinned document (MRMS notice, GFS config, radar
+  table, …), recording where a set of mappings came from and any reference tables
+  that document needs.
+- **`entry`** — one row per product-to-heading assignment, belonging to a
+  source. Holds the product description and its `TTAAII` / `CCCC` codes. A source
+  has many entries.
+- **`meta`** — build metadata (versions, checksums).
 
-Under the hood those "folders" and "cards" are two SQLite tables (`source` and
-`entry`, plus a tiny `meta` table of build info). Each card is stored as a
-free-form text blob rather than fixed columns, because the three product types —
-notice, model, radar — fill in different fields, and a new field should never
-force a database change.
+Each `entry` is stored as a JSON blob rather than fixed columns: the three
+product types (notice, model, radar) populate different fields, so a new field
+should not force a schema change.
